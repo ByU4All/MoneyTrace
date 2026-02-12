@@ -1,0 +1,20 @@
+[project]
+name = "moneytrace"
+version = "0.2.0"
+description = "Personal finance tracking for Android - conservative budgeting, event-driven ledger"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.0",
+    "python-multipart>=0.0.6",
+]
+
+[project.scripts]
+moneytrace = "moneytrace.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
