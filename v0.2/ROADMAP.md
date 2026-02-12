@@ -27,7 +27,7 @@ This document outlines planned features for MoneyTrace, organized by priority an
 
 ## 1. Data Management
 
-### 1.1 Clear Past Data
+### 1.1 Clear Past Data ✅ Implemented in v0.3.0
 
 **Description**: Allow user to wipe all transaction history while keeping settings.
 
@@ -44,7 +44,7 @@ Body: { "confirm": "DELETE", "keep_friends": true }
 ```
 
 **UI**:
-- Settings → Data Management → "Clear All Data"
+- Settings → Data tab → "Clear All Data"
 - Show warning modal with confirmation input
 
 ---
@@ -82,7 +82,7 @@ Body: { "confirm": "DELETE", "keep_friends": true }
 
 ## 2. Budget Reset & Scheduling
 
-### 2.1 Monthly Reset Schedule
+### 2.1 Monthly Reset Schedule ✅ Implemented in v0.3.0
 
 **Description**: Automatically reset available budget on a specific day each month.
 
@@ -100,6 +100,9 @@ Body: { "confirm": "DELETE", "keep_friends": true }
 budget_reset_day: int = 1  # Day of month (1-28)
 budget_reset_enabled: bool = True
 last_reset_date: date = None  # Track when last reset happened
+carry_over_enabled: bool = False
+carry_over_cap: int = None  # None = unlimited
+carry_over_negative: bool = False  # Carry deficits
 ```
 
 **Logic**:
@@ -244,7 +247,7 @@ Not all scheduled transactions happen (bank holiday, insufficient funds, etc.)
 
 ---
 
-## 4. Carry Over Feature
+## 4. Carry Over Feature ✅ Implemented in v0.3.0
 
 ### 4.1 Description
 
@@ -255,17 +258,17 @@ Not all scheduled transactions happen (bank holiday, insufficient funds, etc.)
 - Month 1 spent: ₹8,000 → ₹2,000 unused
 - Month 2 budget: ₹10,000 + ₹2,000 = ₹12,000
 
-### 4.2 Settings
+### 4.2 Settings (Implemented)
 
 | Setting | Options | Default |
 |---------|---------|---------|
 | Enable Carry Over | On/Off | Off |
-| Carry Over Cap | Unlimited / Fixed amount / Percentage | Unlimited |
-| Carry Over Direction | Positive only / Include negative | Positive only |
+| Carry Over Cap | Unlimited / Fixed amount | Unlimited |
+| Carry Over Negative | On/Off (deficit carry) | Off |
 
-**"Include negative"** means: If you overspent ₹2,000, next month starts with ₹8,000.
+**"Carry Over Negative"** means: If you overspent ₹2,000, next month starts with ₹8,000.
 
-### 4.3 Data Model
+### 4.3 Data Model (Implemented)
 
 ```python
 # settings table
@@ -273,8 +276,9 @@ carry_over_enabled: bool = False
 carry_over_cap: int | None = None  # None = unlimited, else paise
 carry_over_negative: bool = False  # Carry over deficits too
 
-# New table: month_records
+# month_records table
 class MonthRecord:
+    id: str
     year: int
     month: int
     base_budget: int
@@ -282,60 +286,55 @@ class MonthRecord:
     total_budget: int       # base + carry_over
     total_spent: int
     ending_balance: int     # Calculated at month end
+    created_at: str
 ```
 
-### 4.4 Open Questions
+### 4.4 Resolved Questions
 
-- Should carry over apply to liabilities/receivables?
-- What's a reasonable default cap? (50% of budget? Unlimited?)
-- How to display this in UI? Show "bonus" separately?
+- ✅ Liabilities/receivables: Carry forward independently (not affected by budget reset)
+- ✅ Default cap: Unlimited (simplest for v0.3)
+- 📋 UI display: Show in settings, applied automatically on reset
 
 ---
 
-## 5. Category Management
+## 5. Category Management ✅ Implemented in v0.3.0
 
 ### 5.1 Current State
 
 - 8 default categories (Food & Dining, Transport, etc.)
 - Categories stored in `categories` table
-- No UI to add/remove categories
+- ✅ Full UI to add/edit/delete categories in Settings
 
-### 5.2 Required Features
+### 5.2 Implemented Features
 
-| Feature | Priority |
-|---------|----------|
-| View all categories | High |
-| Add custom category | High |
-| Rename category | Medium |
-| Delete category | Medium (requires migration) |
-| Reorder categories | Low |
-| Category icons/colors | Low |
+| Feature | Status |
+|---------|--------|
+| View all categories | ✅ Done |
+| Add custom category | ✅ Done |
+| Rename category | ✅ Done |
+| Delete category (with reassignment) | ✅ Done |
+| Reorder categories | Deferred |
+| Category icons/colors | Deferred |
 
 ### 5.3 Delete Behavior
 
-**Problem**: What happens to events using a deleted category?
-
-**Options**:
-1. **Prevent deletion** if category is in use
-2. **Reassign** events to "Uncategorized" or selected category
-3. **Soft delete** - hide but keep in database
-
-**Recommendation**: Option 2 with user choice
+✅ **Implemented**: Option 2 - Reassign events to user-selected category (default: "Other")
 
 ### 5.4 API Endpoints
 
 ```
-GET    /api/categories          # List all (existing)
+GET    /api/categories          # List all with usage counts
+GET    /api/categories/list     # Simple list for dropdowns
 POST   /api/categories          # Add new
 PUT    /api/categories/{id}     # Rename
-DELETE /api/categories/{id}     # Delete (with reassignment)
+DELETE /api/categories/{id}?reassign_to=Other  # Delete with reassignment
 ```
 
 ### 5.5 UI
 
-- Settings → Categories → List with add/edit/delete
-- Swipe to delete on mobile
-- Color picker for visual distinction (future)
+- Settings → Categories tab → List with add/edit/delete buttons
+- Edit: Opens edit modal
+- Delete: Opens confirmation with reassignment dropdown
 
 ---
 
@@ -654,13 +653,13 @@ Tap on a loan to see:
 
 ## Implementation Priority
 
-### Phase 1: v0.3.0 (Foundation)
-| Feature | Effort | Priority |
-|---------|--------|----------|
-| Category Management (add/remove) | Low | High |
-| Data Clear with Confirmation | Low | High |
-| Monthly Reset (fixed day) | Medium | High |
-| Carry Over (basic toggle) | Medium | Medium |
+### Phase 1: v0.3.0 (Foundation) ✅ COMPLETED
+| Feature | Effort | Priority | Status |
+|---------|--------|----------|--------|
+| Category Management (add/edit/delete) | Low | High | ✅ Done |
+| Data Clear with Confirmation | Low | High | ✅ Done |
+| Monthly Reset (configurable day 1-28) | Medium | High | ✅ Done |
+| Carry Over (basic toggle + cap) | Medium | Medium | ✅ Done |
 
 ### Phase 2: v0.3.x (Accounts)
 | Feature | Effort | Priority |
@@ -742,5 +741,5 @@ Tap on a loan to see:
 
 ---
 
-*Last Updated: February 12, 2026*
+*Last Updated: February 13, 2026*
 

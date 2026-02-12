@@ -56,8 +56,8 @@ const API = {
         return this.request(endpoint);
     },
 
-    async getCategories(month = null, year = null) {
-        let endpoint = '/categories';
+    async getCategorySpending(month = null, year = null) {
+        let endpoint = '/spending/categories';
         if (month && year) {
             endpoint += `?month=${month}&year=${year}`;
         }
@@ -123,6 +123,44 @@ const API = {
 
     async exportData() {
         return this.request('/export');
+    },
+
+    async clearData(keepFriends = true) {
+        return this.request('/data/clear', {
+            method: 'POST',
+            body: JSON.stringify({
+                confirm: 'DELETE',
+                keep_friends: keepFriends
+            })
+        });
+    },
+
+    // -------------------------------------------------------------------------
+    // Categories
+    // -------------------------------------------------------------------------
+
+    async getCategories() {
+        return this.request('/categories');
+    },
+
+    async addCategory(name) {
+        return this.request('/categories', {
+            method: 'POST',
+            body: JSON.stringify({ name })
+        });
+    },
+
+    async updateCategory(categoryId, name) {
+        return this.request(`/categories/${categoryId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name })
+        });
+    },
+
+    async deleteCategory(categoryId, reassignTo = 'Other') {
+        return this.request(`/categories/${categoryId}?reassign_to=${encodeURIComponent(reassignTo)}`, {
+            method: 'DELETE'
+        });
     }
 };
 

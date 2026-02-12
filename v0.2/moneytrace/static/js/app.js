@@ -358,17 +358,22 @@ const App = {
         overlay.id = 'settings-modal';
 
         const modal = document.createElement('div');
-        modal.className = 'modal';
+        modal.className = 'modal modal-large';
         modal.innerHTML = Screens.settings(null);
 
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
-        // Load settings
+        // Load settings and categories
         try {
-            const settings = await API.getSettings();
-            modal.innerHTML = Screens.settings(settings);
-            this.bindSettingsHandlers(overlay);
+            const [settings, categories] = await Promise.all([
+                API.getSettings(),
+                API.getCategories()
+            ]);
+            this.currentSettings = settings;
+            this.currentCategories = categories;
+            modal.innerHTML = Screens.settings(settings, categories);
+            this.bindSettingsHandlers(overlay, modal);
         } catch (err) {
             modal.innerHTML = `<p class="text-center text-muted">Failed to load settings</p>`;
         }
@@ -388,11 +393,36 @@ const App = {
         }
     },
 
-    bindSettingsHandlers(overlay) {
+    bindSettingsHandlers(overlay, modal) {
         // Close button
         const closeBtn = document.getElementById('close-settings');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => this.closeSettings());
+        }
+
+        // Tab switching
+        document.querySelectorAll('.settings-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active tab
+                document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Show corresponding content
+                const tabName = tab.dataset.tab;
+                document.querySelectorAll('.settings-tab-content').forEach(content => {
+                    content.classList.toggle('active', content.id === `tab-${tabName}`);
+                });
+            });
+        });
+
+        // Carry over toggle
+        const carryOverCheckbox = document.querySelector('input[name="carry_over_enabled"]');
+        if (carryOverCheckbox) {
+            carryOverCheckbox.addEventListener('change', () => {
+                document.querySelectorAll('.carry-over-options').forEach(el => {
+                    el.classList.toggle('hidden', !carryOverCheckbox.checked);
+                });
+            });
         }
 
         // Settings form
@@ -409,6 +439,58 @@ const App = {
         if (exportBtn) {
             exportBtn.addEventListener('click', () => this.handleExport());
         }
+
+        // Clear data button
+        const clearDataBtn = document.getElementById('clear-data-btn');
+        if (clearDataBtn) {
+            clearDataBtn.addEventListener('click', () => this.showClearDataConfirm(modal));
+        }
+
+        // Add category
+        const addCategoryBtn = document.getElementById('add-category-btn');
+        if (addCategoryBtn) {
+            addCategoryBtn.addEventListener('click', () => this.handleAddCategory(modal));
+        }
+
+        // Enter key on category input
+        const newCategoryInput = document.getElementById('new-category-name');
+        if (newCategoryInput) {
+            newCategoryInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.handleAddCategory(modal);
+                }
+            });
+        }
+
+        // Category edit/delete buttons
+        this.bindCategoryItemHandlers(modal);
+    },
+
+    bindCategoryItemHandlers(modal) {
+        document.querySelectorAll('.edit-category').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = btn.closest('.category-item');
+                const categoryId = item.dataset.categoryId;
+                const category = this.currentCategories.find(c => c.id === categoryId);
+                if (category) {
+                    this.showCategoryEditModal(modal, category);
+                }
+            });
+        });
+
+        document.querySelectorAll('.delete-category').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = btn.closest('.category-item');
+                const categoryId = item.dataset.categoryId;
+                const category = this.currentCategories.find(c => c.id === categoryId);
+                if (category) {
+                    this.showCategoryDeleteConfirm(modal, category);
+                }
+            });
+        });
     },
 
     async handleSaveSettings(form) {
@@ -418,11 +500,23 @@ const App = {
         const budgetRupees = parseFloat(formData.get('base_budget'));
         const budgetPaise = Math.round(budgetRupees * 100);
 
+        const budgetResetDay = parseInt(formData.get('budget_reset_day'));
+        const carryOverEnabled = formData.get('carry_over_enabled') === 'on';
+        const carryOverCapRupees = formData.get('carry_over_cap');
+        const carryOverCapPaise = carryOverCapRupees ? Math.round(parseFloat(carryOverCapRupees) * 100) : 0;
+        const carryOverNegative = formData.get('carry_over_negative') === 'on';
+
         try {
             submitBtn.disabled = true;
             submitBtn.textContent = 'Saving...';
 
-            await API.updateSettings({ base_budget: budgetPaise });
+            await API.updateSettings({
+                base_budget: budgetPaise,
+                budget_reset_day: budgetResetDay,
+                carry_over_enabled: carryOverEnabled,
+                carry_over_cap: carryOverCapPaise,
+                carry_over_negative: carryOverNegative
+            });
 
             this.showToast('Settings saved!', 'success');
             this.closeSettings();
@@ -457,6 +551,201 @@ const App = {
         } catch (err) {
             this.showToast('Export failed: ' + err.message, 'error');
         }
+    },
+
+    // -------------------------------------------------------------------------
+    // Category Management
+    // -------------------------------------------------------------------------
+
+    async handleAddCategory(modal) {
+        const input = document.getElementById('new-category-name');
+        const name = input.value.trim();
+
+        if (!name) {
+            this.showToast('Please enter a category name', 'error');
+            return;
+        }
+
+        try {
+            await API.addCategory(name);
+            input.value = '';
+
+            // Refresh categories
+            this.currentCategories = await API.getCategories();
+            this.refreshCategoryList();
+            this.showToast('Category added!', 'success');
+        } catch (err) {
+            this.showToast('Error: ' + err.message, 'error');
+        }
+    },
+
+    refreshCategoryList() {
+        const list = document.getElementById('category-list');
+        if (!list) return;
+
+        const categoryListHtml = this.currentCategories.length > 0
+            ? this.currentCategories.map(cat => `
+                <div class="category-item" data-category-id="${cat.id}" data-is-default="${cat.is_default}">
+                    <span class="category-name">${cat.name}</span>
+                    <span class="category-usage">${cat.usage_count || 0} events</span>
+                    <div class="category-actions">
+                        <button class="btn-icon edit-category" title="Edit">✏️</button>
+                        ${!cat.is_default ? `<button class="btn-icon delete-category" title="Delete">🗑️</button>` : ''}
+                    </div>
+                </div>
+            `).join('')
+            : '<p class="text-muted">No categories</p>';
+
+        list.innerHTML = categoryListHtml;
+
+        // Re-bind handlers
+        const modal = document.querySelector('.modal');
+        this.bindCategoryItemHandlers(modal);
+    },
+
+    showCategoryEditModal(parentModal, category) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'category-edit-modal';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal modal-small';
+        modal.innerHTML = Screens.categoryEdit(category);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Bind handlers
+        document.getElementById('close-category-edit').addEventListener('click', () => {
+            overlay.remove();
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        document.getElementById('category-edit-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const categoryId = formData.get('category_id');
+            const newName = formData.get('name').trim();
+
+            if (!newName) {
+                this.showToast('Please enter a category name', 'error');
+                return;
+            }
+
+            try {
+                await API.updateCategory(categoryId, newName);
+                overlay.remove();
+
+                // Refresh categories
+                this.currentCategories = await API.getCategories();
+                this.refreshCategoryList();
+                this.showToast('Category updated!', 'success');
+            } catch (err) {
+                this.showToast('Error: ' + err.message, 'error');
+            }
+        });
+    },
+
+    showCategoryDeleteConfirm(parentModal, category) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'category-delete-modal';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal modal-small';
+        modal.innerHTML = Screens.categoryDeleteConfirm(category, this.currentCategories);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Bind handlers
+        document.getElementById('close-category-delete').addEventListener('click', () => {
+            overlay.remove();
+        });
+
+        document.getElementById('cancel-category-delete').addEventListener('click', () => {
+            overlay.remove();
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        document.getElementById('confirm-category-delete').addEventListener('click', async () => {
+            const reassignSelect = document.getElementById('reassign-category');
+            const reassignTo = reassignSelect ? reassignSelect.value : 'Other';
+
+            try {
+                await API.deleteCategory(category.id, reassignTo);
+                overlay.remove();
+
+                // Refresh categories
+                this.currentCategories = await API.getCategories();
+                this.refreshCategoryList();
+                this.showToast('Category deleted!', 'success');
+            } catch (err) {
+                this.showToast('Error: ' + err.message, 'error');
+            }
+        });
+    },
+
+    // -------------------------------------------------------------------------
+    // Clear Data
+    // -------------------------------------------------------------------------
+
+    showClearDataConfirm(parentModal) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'clear-data-modal';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal modal-small';
+        modal.innerHTML = Screens.clearDataConfirm();
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Bind handlers
+        document.getElementById('close-clear-confirm').addEventListener('click', () => {
+            overlay.remove();
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        // Enable confirm button only when "DELETE" is typed
+        const confirmInput = document.getElementById('delete-confirm-input');
+        const confirmBtn = document.getElementById('confirm-clear-btn');
+
+        confirmInput.addEventListener('input', () => {
+            confirmBtn.disabled = confirmInput.value !== 'DELETE';
+        });
+
+        confirmBtn.addEventListener('click', async () => {
+            const keepFriends = document.getElementById('keep-friends-checkbox').checked;
+
+            try {
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = 'Clearing...';
+
+                await API.clearData(keepFriends);
+                overlay.remove();
+                this.closeSettings();
+
+                this.showToast('All data cleared!', 'success');
+
+                // Refresh current screen
+                this.showScreen(this.currentScreen);
+            } catch (err) {
+                this.showToast('Error: ' + err.message, 'error');
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Clear All Data';
+            }
+        });
     },
 
     // -------------------------------------------------------------------------

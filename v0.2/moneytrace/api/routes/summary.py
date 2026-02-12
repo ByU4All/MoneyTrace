@@ -137,7 +137,7 @@ def get_dashboard(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/categories", response_model=list[CategorySpend])
+@router.get("/spending/categories", response_model=list[CategorySpend])
 def get_category_spending(
     month: int = Query(None, ge=1, le=12, description="Month (1-12), defaults to current"),
     year: int = Query(None, ge=2000, le=2100, description="Year, defaults to current"),
@@ -164,16 +164,6 @@ def get_category_spending(
             CategorySpend(category=cat, amount=amt)
             for cat, amt in sorted_categories
         ]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/categories/list")
-def get_available_categories():
-    """Get list of available categories."""
-    try:
-        db = get_db()
-        return db.get_categories()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

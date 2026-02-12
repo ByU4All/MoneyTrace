@@ -90,11 +90,58 @@ class SettingsResponse(BaseModel):
     """Application settings."""
     base_budget: int
     currency_symbol: str = "₹"
+    budget_reset_day: int = 1
+    budget_reset_enabled: bool = True
+    carry_over_enabled: bool = False
+    carry_over_cap: Optional[int] = None
+    carry_over_negative: bool = False
 
 
 class SettingsUpdate(BaseModel):
     """Update settings."""
     base_budget: Optional[int] = Field(None, gt=0, description="Monthly budget in paise")
+    budget_reset_day: Optional[int] = Field(None, ge=1, le=28, description="Day of month for budget reset (1-28)")
+    budget_reset_enabled: Optional[bool] = Field(None, description="Enable automatic budget reset")
+    carry_over_enabled: Optional[bool] = Field(None, description="Enable carry over of unused budget")
+    carry_over_cap: Optional[int] = Field(None, ge=0, description="Maximum carry over in paise (0 = unlimited)")
+    carry_over_negative: Optional[bool] = Field(None, description="Carry over deficits to next month")
+
+
+# ---------------------------------------------------------------------------
+# Category Schemas
+# ---------------------------------------------------------------------------
+
+class CategoryCreate(BaseModel):
+    """Create a new category."""
+    name: str = Field(..., min_length=1, max_length=50, description="Category name")
+
+
+class CategoryUpdate(BaseModel):
+    """Update a category."""
+    name: str = Field(..., min_length=1, max_length=50, description="New category name")
+
+
+class CategoryResponse(BaseModel):
+    """Category in API response."""
+    id: str
+    name: str
+    is_default: bool
+    usage_count: Optional[int] = None
+
+
+class CategoryDeleteRequest(BaseModel):
+    """Delete a category with reassignment."""
+    reassign_to: str = Field("Other", description="Category name to reassign events to")
+
+
+# ---------------------------------------------------------------------------
+# Data Management Schemas
+# ---------------------------------------------------------------------------
+
+class ClearDataRequest(BaseModel):
+    """Request to clear all data."""
+    confirm: str = Field(..., description="Must be 'DELETE' to confirm")
+    keep_friends: bool = Field(True, description="Keep friends list when clearing data")
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 """
-Server entry point for MoneyTrace v0.2.0
+Server entry point for MoneyTrace v0.3.0
 
 Starts the FastAPI backend with uvicorn.
 Designed to run on Android via Termux.
@@ -28,7 +28,7 @@ def main():
 
     print(f"""
 ╔══════════════════════════════════════════╗
-║          MoneyTrace v0.2.0               ║
+║          MoneyTrace v0.3.0               ║
 ║    Personal Finance Tracking             ║
 ╠══════════════════════════════════════════╣
 ║  Open in browser:                        ║

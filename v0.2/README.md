@@ -1,4 +1,4 @@
-# MoneyTrace v0.2.0
+# MoneyTrace v0.3.0
 
 **Personal finance tracking for Android** — conservative budgeting, event-driven ledger.
 
@@ -8,6 +8,10 @@
 - 🐍 **Python backend** — All logic in Python (FastAPI + SQLite)
 - 📴 **Fully offline** — Works without internet after setup
 - 💾 **Data export** — Backup your data as JSON
+- 🏷️ **Category Management** — Add, edit, delete custom categories
+- 🔄 **Budget Reset** — Configurable monthly reset day (1-28)
+- 💰 **Carry Over** — Unused budget carries to next month (optional)
+- 🗑️ **Clear Data** — Reset all transactions with confirmation
 
 ## Quick Start
 
