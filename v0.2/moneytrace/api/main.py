@@ -94,12 +94,15 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
 
     # Import routes here to avoid circular imports
-    from .routes import events, friends, summary, settings, categories
+    from .routes import (
+        events, friends, summary, settings, categories,
+        accounts, recurring, loans, creditcards
+    )
 
     application = FastAPI(
         title="MoneyTrace",
         description="Personal finance tracking - conservative budgeting, event-driven ledger",
-        version="0.3.0",
+        version="0.4.0",
         lifespan=lifespan,
     )
 
@@ -115,7 +118,7 @@ def create_app() -> FastAPI:
     # Health check
     @application.get("/api/health")
     def health_check():
-        return {"status": "ok", "version": "0.3.0"}
+        return {"status": "ok", "version": "0.4.0"}
 
     # Include API routers
     application.include_router(events.router, prefix="/api")
@@ -123,6 +126,10 @@ def create_app() -> FastAPI:
     application.include_router(summary.router, prefix="/api")
     application.include_router(settings.router, prefix="/api")
     application.include_router(categories.router, prefix="/api")
+    application.include_router(accounts.router, prefix="/api")
+    application.include_router(recurring.router, prefix="/api")
+    application.include_router(loans.router, prefix="/api")
+    application.include_router(creditcards.router, prefix="/api")
 
     # Serve static PWA files
     static_dir = Path(__file__).parent.parent / "static"

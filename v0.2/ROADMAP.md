@@ -1,14 +1,14 @@
 # MoneyTrace Roadmap & Future Features
 
-> **Version**: Planning Document for v0.3.x and beyond  
-> **Created**: February 12, 2026  
-> **Status**: Draft for Discussion
+> **Version**: Planning Document for v0.4.x and beyond  
+> **Updated**: February 13, 2026  
+> **Status**: Active Development
 
 ---
 
 ## Overview
 
-This document outlines planned features for MoneyTrace, organized by priority and complexity. Each feature includes specifications, implementation considerations, and open questions for discussion.
+This document outlines planned features for MoneyTrace, organized by priority and complexity. Each feature includes specifications, implementation considerations, and status.
 
 ---
 
@@ -22,12 +22,132 @@ This document outlines planned features for MoneyTrace, organized by priority an
 6. [Multiple Accounts](#6-multiple-accounts)
 7. [Credit Card Tracking](#7-credit-card-tracking)
 8. [EMI & Loan Tracking](#8-emi--loan-tracking)
+9. [Full CRUD Operations](#9-full-crud-operations)
+10. [Timeline & Audit Trail](#10-timeline--audit-trail)
+11. [UI Enhancements](#11-ui-enhancements)
+12. [Budget Includes Unpaid Recurring](#12-budget-includes-unpaid-recurring)
+
+---
+
+## Recently Implemented (v0.4.2)
+
+### ✅ Budget Includes Unpaid Recurring
+
+**Core Concept**: Budget remaining now reflects "true disposable amount" by reserving funds for recurring transactions that are due this month but haven't been paid yet.
+
+**Formula**:
+```
+Budget Remaining = Base Budget + Adjustments + Settlements Received 
+                 - Expenses - Liabilities - EMI Payments 
+                 - Unpaid Recurring (this month)
+```
+
+#### Features
+- **Autopay Flag**: Mark recurring as autopay (bank auto-deducts)
+- **Upcoming Bills Section**: Dashboard shows upcoming bills with countdown
+- **Pay Early**: Pay a recurring transaction before due date
+- **Budget Breakdown**: Shows reserved amounts for unpaid bills
+
+#### Autopay vs Manual
+- `is_autopay = true`: Bank handles payment, still reserves budget
+- `is_autopay = false`: Requires manual confirmation when due
+- Both types reserve budget until paid/skipped
+
+#### Upcoming Bills Display
+- 🔴 Overdue (past due date, not confirmed)
+- 🟡 Due soon (within 3 days)  
+- 📅 Upcoming (further ahead)
+- 🔄 Auto badge for autopay items
+
+#### API Endpoints
+- `GET /recurring/upcoming?days=30` - Get upcoming bills
+- `POST /recurring/{id}/pay-early` - Pay before due date
+
+---
+
+## Recently Implemented (v0.4.1)
+
+### ✅ UI Enhancements
+
+#### Budget Breakdown Modal
+- Click on budget card on dashboard to see breakdown
+- Shows: Base budget, carry over, income, settlements, expenses, liabilities
+- Clear calculation formula: Starting + CarryOver + SettlementsReceived - Expenses - Liabilities = Remaining
+
+#### Income & Deposit Feature
+- "Income" transaction type added to Add Event screen
+- Deposits money into selected account
+- Category tracking for income sources
+
+#### Transfer Funds Feature  
+- Transfer between accounts from Add Event screen
+- Select from/to accounts
+- Updates both account balances atomically
+
+#### Enhanced Add Event Screen
+- Row 1: Expense, Income, Transfer
+- Row 2: I Owe, Owes Me, Settle
+- Settlement toggle: "I'm Paying" / "I'm Receiving"
+- Clear account/friend field labeling based on type
+
+#### Friends CRUD in UI
+- Click on friend in dashboard or friends list to view details
+- Edit name/phone in modal
+- Delete friend (only if settled)
+- View transaction history with friend
+
+#### Accounts View/Edit in UI
+- Click on account to view details
+- Edit name, institution, balance
+- View recent transactions for account
+- Delete account (non-default only)
+
+#### History Timeline Filter
+- Toggle between "Money Only" and "Full Activity"
+- Money Only: Transactions only (expenses, income, etc.)
+- Full Activity: All CRUD operations (edits, deletes, etc.)
+
+---
+
+### ✅ Previous (v0.4.0)
+
+### ✅ Account Selection for All Transactions
+- Every transaction (expense, income, settlement, etc.) can be linked to an account
+- Account balance automatically updated based on transaction type
+- Closed system where money is tracked properly (no generation/loss, only transfer)
+
+### ✅ View/Edit Modals for Recurring & Loans
+- Click on any recurring transaction or loan to view details
+- Edit form for modifying name, amount, account, schedule, etc.
+- Option to delete/close with proper data preservation
+
+### ✅ Settlement Tracking with Account Selection
+- Settlements properly track which account money came from/went to
+- Separate settlement_paid and settlement_received event types
+- Description field for settlement purpose
+
+### ✅ Full CRUD for All Entities
+- **Friends**: Create, Read, Update, Delete (only if settled)
+- **Accounts**: Create, Read, Update, Delete (soft/permanent)
+- **Events**: Create, Read, Delete (with balance reversal)
+- **Loans**: Create, Read, Update, Close/Delete
+- **Recurring**: Create, Read, Update, Deactivate/Delete
+
+### ✅ Timeline with Audit Trail
+- `GET /api/events/timeline?detailed=false` - Money transactions only
+- `GET /api/events/timeline?detailed=true` - All activity including CRUD operations
+- Every edit/delete logged with old/new values
+
+### ✅ Soft Delete vs Permanent Delete
+- Soft delete: Record kept, marked inactive, past transactions preserved
+- Permanent delete: Record removed, transactions unlinked but preserved
+- Friends with outstanding balance cannot be deleted
 
 ---
 
 ## 1. Data Management
 
-### 1.1 Clear Past Data ✅ Implemented in v0.3.0
+### 1.1 Clear Past Data ✅ Implemented
 
 **Description**: Allow user to wipe all transaction history while keeping settings.
 
@@ -43,703 +163,326 @@ POST /api/data/clear
 Body: { "confirm": "DELETE", "keep_friends": true }
 ```
 
-**UI**:
-- Settings → Data tab → "Clear All Data"
-- Show warning modal with confirmation input
+---
+
+### 1.2 Create Data Backup ✅ Implemented
+
+**API Endpoint**: `GET /api/export`
+
+**Features**:
+- Exports all data to JSON
+- Includes version for compatibility
+- Contains: settings, categories, friends, events, accounts, recurring, loans
 
 ---
 
-### 1.2 Create Data Backup
+### 1.3 Restore Data from Backup ✅ Implemented
 
-**Description**: Export all data to a JSON file for backup.
-
-**Current Status**: ✅ Already implemented via `GET /api/export`
-
-**Enhancements Needed**:
-- Add timestamp to filename
-- Include app version for compatibility checking
-- Option to encrypt backup with password (future)
-
----
-
-### 1.3 Restore Data from Backup
-
-**Description**: Import data from a previously exported JSON backup.
-
-**Current Status**: ✅ Already implemented via `POST /api/import`
-
-**Enhancements Needed**:
-- Validate backup file version compatibility
-- Show preview of what will be imported
-- Option to merge vs replace existing data
-- Progress indicator for large imports
-
-**Open Questions**:
-- Should restore completely replace data or merge?
-- How to handle conflicts (same event ID exists)?
+**API Endpoint**: `POST /api/import`
 
 ---
 
 ## 2. Budget Reset & Scheduling
 
-### 2.1 Monthly Reset Schedule ✅ Implemented in v0.3.0
+### 2.1 Monthly Reset Schedule ✅ Implemented
 
-**Description**: Automatically reset available budget on a specific day each month.
+**Settings**:
+- Reset Day (1-28)
+- Reset Enabled (on/off)
+- Carry Over options
 
-**Specification**:
+---
 
-| Setting | Options | Default |
-|---------|---------|---------|
-| Reset Day | 1-28 (avoid month-end edge cases) | 1 |
-| Reset Type | Full reset / Carry over | Full reset |
-| Auto-archive | Archive previous month's data | Yes |
+## 3. Recurring Transactions ✅ Implemented
 
-**Data Model Addition**:
+### Features:
+- Create recurring expenses, income, EMI payments
+- Daily, weekly, monthly, yearly frequency
+- Verification flow for pending transactions
+- Auto-link to loans for EMI tracking
+
+---
+
+## 4. Carry Over Feature ✅ Implemented
+
+---
+
+## 5. Category Management ✅ Implemented
+
+---
+
+## 6. Multiple Accounts ✅ Implemented
+
+### Features:
+- Multiple account types: Savings, Current, Cash, Credit Card, UPI/Wallet
+- Track balance per account
+- Transfer between accounts
+- Account-specific transaction history
+
+---
+
+## 7. Credit Card Tracking ✅ Implemented
+
+### Features:
+- Credit card as account type
+- Track credit limit, billing day, due day
+- Record credit card payments
+- Track outstanding balance
+
+---
+
+## 8. EMI & Loan Tracking ✅ Implemented
+
+### Features:
+- Create loans with principal, interest rate, tenure, EMI
+- Auto-generate recurring EMI reminders
+- Track payments made vs remaining
+- Close vs Delete loans (keep history)
+- Amortization schedule
+
+---
+
+## 9. Full CRUD Operations ✅ Implemented
+
+### 9.1 Friends CRUD
+
+| Operation | Endpoint | Notes |
+|-----------|----------|-------|
+| Create | POST /friends | - |
+| Read | GET /friends | With balance |
+| Update | PUT /friends/{id} | Name, phone |
+| Delete | DELETE /friends/{id} | Only if settled |
+
+**Delete Rules**:
+- Friends with outstanding balance cannot be deleted
+- Past transactions preserved with friend_id reference
+
+---
+
+### 9.2 Accounts CRUD
+
+| Operation | Endpoint | Notes |
+|-----------|----------|-------|
+| Create | POST /accounts | - |
+| Read | GET /accounts | - |
+| Update | PUT /accounts/{id} | - |
+| Deactivate | DELETE /accounts/{id} | Soft delete |
+| Permanent Delete | DELETE /accounts/{id}?permanent=true | Unlinks transactions |
+
+**Delete Rules**:
+- Default account cannot be deleted
+- Non-zero balance allowed (user's choice)
+- Transactions preserved, account_id kept for reference
+
+---
+
+### 9.3 Events CRUD
+
+| Operation | Endpoint | Notes |
+|-----------|----------|-------|
+| Create | POST /events | With account selection |
+| Read | GET /events | Filter by account |
+| Delete | DELETE /events/{id} | Reverses balance |
+
+**Delete Rules**:
+- Account balance impact is reversed
+- Event is permanently removed
+- Deletion logged in audit trail
+
+---
+
+### 9.4 Loans CRUD
+
+| Operation | Endpoint | Notes |
+|-----------|----------|-------|
+| Create | POST /loans | Auto-creates recurring |
+| Read | GET /loans | - |
+| Update | PUT /loans/{id} | Name, EMI, account |
+| Close | DELETE /loans/{id} | Soft delete |
+| Delete | DELETE /loans/{id}?permanent=true | Removes record |
+
+---
+
+### 9.5 Recurring CRUD
+
+| Operation | Endpoint | Notes |
+|-----------|----------|-------|
+| Create | POST /recurring | - |
+| Read | GET /recurring | - |
+| Update | PUT /recurring/{id} | - |
+| Deactivate | DELETE /recurring/{id} | Soft delete |
+
+---
+
+## 10. Timeline & Audit Trail ✅ Implemented
+
+### 10.1 Timeline API
+
+```
+GET /api/events/timeline
+Query Parameters:
+  - limit: int (default 100)
+  - detailed: bool (default false)
+```
+
+**detailed=false** (Money-only):
+- Shows only financial transactions
+- Expense, income, transfer, settlement, etc.
+
+**detailed=true** (All Activity):
+- Includes all CRUD operations
+- Friend added/edited/deleted
+- Account changes
+- Loan modifications
+- Every edit with old/new values
+
+### 10.2 Audit Log Schema
+
 ```python
-# settings table
-budget_reset_day: int = 1  # Day of month (1-28)
-budget_reset_enabled: bool = True
-last_reset_date: date = None  # Track when last reset happened
-carry_over_enabled: bool = False
-carry_over_cap: int = None  # None = unlimited
-carry_over_negative: bool = False  # Carry deficits
-```
-
-**Logic**:
-```
-On app open:
-  if today >= reset_day AND last_reset_month < current_month:
-    - Archive previous month (optional)
-    - Reset budget to base_budget
-    - Update last_reset_date
-```
-
-**Open Questions**:
-- What happens to outstanding liabilities/receivables on reset?
-  - Option A: Carry forward (recommended)
-  - Option B: Clear (dangerous)
-- Should we show a notification on reset day?
-
----
-
-### 2.2 Custom Reset Period
-
-**Description**: Support non-monthly reset cycles (weekly, bi-weekly, custom).
-
-**Specification**:
-
-| Cycle | Use Case |
-|-------|----------|
-| Weekly | Weekly allowance tracking |
-| Bi-weekly | Paycheck cycle |
-| Monthly | Standard (default) |
-| Custom | User-defined period in days |
-
-**Complexity**: Medium - requires rethinking how "monthly" spend is calculated
-
-**Defer to**: v0.4.x (after monthly reset is stable)
-
----
-
-## 3. Recurring Transactions
-
-### 3.1 Core Concept
-
-**Description**: Set up transactions that repeat on a schedule (EMI, subscriptions, salary).
-
-**Transaction Types**:
-
-| Type | Direction | Example |
-|------|-----------|---------|
-| Recurring Expense | Outflow | Netflix subscription, Rent |
-| Recurring Income | Inflow | Salary, Rental income |
-| EMI Payment | Outflow | Loan EMI, Credit card EMI |
-| SIP/Investment | Outflow | Mutual fund SIP |
-
----
-
-### 3.2 Data Model
-
-```python
-class RecurringTransaction:
+class AuditLog:
     id: str
-    name: str                    # "Netflix", "Salary", "Home Loan EMI"
-    type: str                    # expense, income, emi, investment
-    amount: int                  # Amount in paise
-    category: str               
-    account_id: str              # Which account (see section 6)
-    
-    # Schedule
-    frequency: str               # daily, weekly, monthly, yearly
-    day_of_month: int           # 1-28 for monthly
-    day_of_week: int            # 0-6 for weekly
-    start_date: date
-    end_date: date | None       # None = indefinite
-    
-    # Verification
-    requires_verification: bool  # Must confirm each occurrence
-    auto_apply: bool            # Apply automatically if not verified
-    
-    # Status
-    is_active: bool
-    last_applied_date: date | None
-    next_due_date: date
-```
-
----
-
-### 3.3 Verification Flow
-
-**Why Verification?**  
-Not all scheduled transactions happen (bank holiday, insufficient funds, etc.)
-
-**Flow**:
-```
-1. On due date, show pending transactions in dashboard
-2. User can:
-   - ✅ Confirm (transaction recorded)
-   - ❌ Skip this occurrence (not recorded)
-   - ⏰ Remind later (snooze)
-3. If auto_apply=true and no action by end of day:
-   - Auto-record the transaction
-4. If auto_apply=false and no action:
-   - Show as "missed" in next session
-```
-
-**UI**:
-- Dashboard banner: "3 pending transactions need confirmation"
-- Swipe to confirm/skip on mobile
-- Bulk confirm option
-
----
-
-### 3.4 Examples
-
-**Salary Deposit (Income)**:
-```json
-{
-  "name": "Monthly Salary",
-  "type": "income",
-  "amount": 5000000,
-  "category": "Salary",
-  "account_id": "hdfc_savings",
-  "frequency": "monthly",
-  "day_of_month": 1,
-  "requires_verification": true,
-  "auto_apply": false
-}
-```
-
-**Netflix Subscription (Expense)**:
-```json
-{
-  "name": "Netflix",
-  "type": "expense", 
-  "amount": 64900,
-  "category": "Entertainment",
-  "account_id": "icici_credit",
-  "frequency": "monthly",
-  "day_of_month": 15,
-  "requires_verification": false,
-  "auto_apply": true
-}
-```
-
----
-
-## 4. Carry Over Feature ✅ Implemented in v0.3.0
-
-### 4.1 Description
-
-**What**: Unused budget from current month carries to next month.
-
-**Example**:
-- Base budget: ₹10,000
-- Month 1 spent: ₹8,000 → ₹2,000 unused
-- Month 2 budget: ₹10,000 + ₹2,000 = ₹12,000
-
-### 4.2 Settings (Implemented)
-
-| Setting | Options | Default |
-|---------|---------|---------|
-| Enable Carry Over | On/Off | Off |
-| Carry Over Cap | Unlimited / Fixed amount | Unlimited |
-| Carry Over Negative | On/Off (deficit carry) | Off |
-
-**"Carry Over Negative"** means: If you overspent ₹2,000, next month starts with ₹8,000.
-
-### 4.3 Data Model (Implemented)
-
-```python
-# settings table
-carry_over_enabled: bool = False
-carry_over_cap: int | None = None  # None = unlimited, else paise
-carry_over_negative: bool = False  # Carry over deficits too
-
-# month_records table
-class MonthRecord:
-    id: str
-    year: int
-    month: int
-    base_budget: int
-    carry_over_amount: int  # From previous month
-    total_budget: int       # base + carry_over
-    total_spent: int
-    ending_balance: int     # Calculated at month end
+    action: str        # create, update, delete, close
+    entity_type: str   # event, friend, account, loan, recurring
+    entity_id: str
+    entity_name: str
+    old_values: dict   # Previous state
+    new_values: dict   # New state
+    description: str   # Human-readable
+    is_money_related: bool
     created_at: str
 ```
 
-### 4.4 Resolved Questions
+---
 
-- ✅ Liabilities/receivables: Carry forward independently (not affected by budget reset)
-- ✅ Default cap: Unlimited (simplest for v0.3)
-- 📋 UI display: Show in settings, applied automatically on reset
+## 11. UI Enhancements ✅ Implemented
+
+### 11.1 Budget Breakdown Modal
+
+**Trigger**: Click on budget card in dashboard
+
+**Shows**:
+- Starting Budget
+- + Carry Over
+- + Settlements Received
+- − Expenses
+- − EMI/Loan Payments
+- − Outstanding Liabilities
+- = Remaining Budget
+
+**Budget Calculation includes**:
+- EMI payments (from loans/recurring) reduce available budget
+- Recurring expenses tracked via pending verification flow
+
+### 11.2 Add Event Enhancements
+
+**Transaction Types (2 rows)**:
+- Row 1: Expense | Income | Transfer
+- Row 2: I Owe | Owes Me | Settle
+
+**Smart Form Fields**:
+- Account label changes based on type (Paid From / Deposit To / etc.)
+- Category shown/hidden based on type
+- Friend selector for friend-related transactions
+- Transfer shows From/To account selectors
+
+### 11.3 Entity Detail Modals
+
+**Friends**:
+- View balance and transaction history
+- Edit name/phone
+- Delete (only if settled)
+
+**Accounts**:
+- View balance and recent transactions
+- Edit name/institution/balance
+- Delete (non-default, preserves transactions)
+
+**Loans**:
+- View progress (payments made / total)
+- Edit EMI amount, day, lender
+- Close loan (soft delete)
+
+**Recurring**:
+- View schedule details
+- Edit amount, frequency, account
+- Deactivate or delete
+
+### 11.4 History Timeline Filter
+
+**Two Modes**:
+- 💰 Money Only: Financial transactions only
+- 📋 Full Activity: All CRUD operations with audit trail
 
 ---
 
-## 5. Category Management ✅ Implemented in v0.3.0
+## Future Enhancements (v0.5.x+)
 
-### 5.1 Current State
+### Analytics & Reports
+- Monthly spending trends
+- Category-wise breakdown charts
+- Budget vs actual comparison
+- Year-over-year analysis
 
-- 8 default categories (Food & Dining, Transport, etc.)
-- Categories stored in `categories` table
-- ✅ Full UI to add/edit/delete categories in Settings
+### Notifications
+- EMI due reminders
+- Budget threshold alerts
+- Pending verification reminders
 
-### 5.2 Implemented Features
+### Multi-Currency Support
+- Track expenses in multiple currencies
+- Exchange rate conversion
 
-| Feature | Status |
-|---------|--------|
-| View all categories | ✅ Done |
-| Add custom category | ✅ Done |
-| Rename category | ✅ Done |
-| Delete category (with reassignment) | ✅ Done |
-| Reorder categories | Deferred |
-| Category icons/colors | Deferred |
+### Investment Tracking
+- SIP tracking
+- Portfolio value
+- Returns calculation
 
-### 5.3 Delete Behavior
-
-✅ **Implemented**: Option 2 - Reassign events to user-selected category (default: "Other")
-
-### 5.4 API Endpoints
-
-```
-GET    /api/categories          # List all with usage counts
-GET    /api/categories/list     # Simple list for dropdowns
-POST   /api/categories          # Add new
-PUT    /api/categories/{id}     # Rename
-DELETE /api/categories/{id}?reassign_to=Other  # Delete with reassignment
-```
-
-### 5.5 UI
-
-- Settings → Categories tab → List with add/edit/delete buttons
-- Edit: Opens edit modal
-- Delete: Opens confirmation with reassignment dropdown
+### Shared Expenses
+- Group expenses (trips, roommates)
+- Split calculation
+- Settlement tracking across groups
 
 ---
 
-## 6. Multiple Accounts
-
-### 6.1 Core Concept
-
-Track money across different accounts/wallets.
-
-**Account Types**:
-
-| Type | Behavior |
-|------|----------|
-| Bank Account (Savings) | Normal debit/credit |
-| Bank Account (Current) | Normal debit/credit |
-| Cash/Wallet | Physical cash tracking |
-| Debit Card | Linked to bank account |
-| Credit Card | Special (see section 7) |
-| UPI/Digital Wallet | PayTM, GPay balance |
-
-### 6.2 Data Model
-
-```python
-class Account:
-    id: str
-    name: str                    # "HDFC Savings", "Cash Wallet"
-    type: str                    # savings, current, cash, credit_card, upi
-    institution: str | None      # "HDFC", "ICICI", "PayTM"
-    
-    # For display
-    last_4_digits: str | None   # "1234" for cards
-    color: str | None           # For UI distinction
-    icon: str | None
-    
-    # Balance (optional - for reconciliation)
-    tracked_balance: bool        # Whether we track running balance
-    current_balance: int | None  # Manual or calculated
-    
-    # Credit card specific (see section 7)
-    is_credit: bool
-    credit_limit: int | None
-    billing_day: int | None
-    due_day: int | None
-    
-    # Status
-    is_active: bool
-    created_at: date
-```
-
-### 6.3 Event Changes
-
-Add account reference to events:
-
-```python
-class Event:
-    # ...existing fields...
-    account_id: str | None  # Which account was used
-```
-
-### 6.4 Transfer Between Accounts
-
-**New Event Type**: `transfer`
-
-```python
-{
-    "type": "transfer",
-    "amount": 500000,
-    "from_account_id": "hdfc_savings",
-    "to_account_id": "cash_wallet",
-    "description": "ATM withdrawal"
-}
-```
-
-**Budget Impact**: Zero (money moved, not spent)
-
-### 6.5 UI Considerations
-
-- Dashboard: Show total across all accounts OR selected account
-- Account switcher in header
-- Filter transactions by account
-- Account management in settings
-
-### 6.6 Open Questions
-
-- Should we track actual balances or just transactions?
-  - **Track balances**: More accurate, requires reconciliation
-  - **Transactions only**: Simpler, user manages actual balances
-- How to handle the default "no account" for existing events?
-
----
-
-## 7. Credit Card Tracking
-
-### 7.1 How Credit Cards Differ
-
-| Aspect | Debit/Cash | Credit Card |
-|--------|------------|-------------|
-| When counted | Immediately | On use (conservative approach) |
-| Budget impact | Immediate | Immediate (money is committed) |
-| Payment | N/A | Must track due date |
-
-### 7.2 Credit Card Workflow
-
-```
-1. PURCHASE (Day 5)
-   - Record expense with credit card
-   - Amount: ₹5,000
-   - Budget impact: -₹5,000 (immediately - conservative)
-   - Card balance: +₹5,000 (outstanding)
-
-2. BILLING CYCLE CLOSES (Day 20)
-   - Statement generated
-   - Statement amount: ₹5,000
-   - Due date: Day 10 of next month
-
-3. PAYMENT WINDOW (Day 20 → Day 10)
-   - Show countdown timer
-   - Remind user to pay
-
-4. PAYMENT (Day 8)
-   - Record payment from savings account
-   - Amount: ₹5,000
-   - Budget impact: ₹0 (already counted at purchase)
-   - Card balance: ₹0 (cleared)
-   
-5. PARTIAL PAYMENT
-   - If only ₹3,000 paid
-   - Remaining ₹2,000 shows as outstanding
-   - Interest warning displayed
-```
-
-### 7.3 Data Model
-
-```python
-class CreditCardStatement:
-    id: str
-    card_account_id: str
-    statement_date: date
-    due_date: date
-    statement_amount: int
-    minimum_due: int
-    
-    # Payment tracking
-    paid_amount: int = 0
-    paid_date: date | None
-    is_fully_paid: bool
-    
-    # Events included in this statement
-    event_ids: list[str]
-```
-
-### 7.4 Key Calculations
-
-**Outstanding on Card**:
-```python
-def card_outstanding(card_id):
-    expenses = sum(events where account=card and type=expense)
-    payments = sum(events where type=credit_card_payment and card=card)
-    return expenses - payments
-```
-
-**Due This Month**:
-```python
-def amount_due(card_id):
-    statement = get_current_statement(card_id)
-    return statement.statement_amount - statement.paid_amount
-```
-
-### 7.5 UI Elements
-
-- **Card Widget**: Show each credit card with:
-  - Current outstanding
-  - Statement amount (if in payment window)
-  - Days until due date
-  - "Pay Now" button
-
-- **Payment Timer**: Visual countdown when in payment window
-
-- **Alerts**:
-  - 7 days before due: "₹5,000 due in 7 days"
-  - 3 days before due: "⚠️ ₹5,000 due soon!"
-  - Past due: "❌ Payment overdue!"
-
-### 7.6 Complexity Assessment
-
-**High complexity feature** - Requires:
-- New account type logic
-- Statement cycle tracking
-- Payment linking
-- Timer/notification system
-
-**Recommendation**: Implement in v0.4.x after accounts are stable
-
----
-
-## 8. EMI & Loan Tracking
-
-### 8.1 Core Concept
-
-Track ongoing EMIs and loans with:
-- Total principal
-- Interest rate
-- EMI amount
-- Remaining payments
-- Associated payment method
-
-### 8.2 Data Model
-
-```python
-class Loan:
-    id: str
-    name: str                    # "Home Loan", "iPhone EMI"
-    type: str                    # home_loan, car_loan, personal_loan, 
-                                 # credit_card_emi, bnpl (buy now pay later)
-    
-    # Loan details
-    principal: int               # Original amount in paise
-    interest_rate: float         # Annual % (e.g., 12.5)
-    tenure_months: int           # Total EMIs
-    emi_amount: int              # Monthly EMI in paise
-    
-    # Payment tracking
-    start_date: date
-    emi_day: int                 # Day of month EMI is due
-    payments_made: int           # Count of EMIs paid
-    payments_remaining: int      # Calculated
-    
-    # Payment method
-    payment_account_id: str      # Deducted from this account
-    payment_type: str            # auto_debit, manual, credit_card
-    
-    # For credit card EMI
-    credit_card_id: str | None   # If paid via CC EMI
-    
-    # Status
-    is_active: bool
-    foreclosure_amount: int | None  # To close early
-    
-    # Metadata
-    lender: str                  # "HDFC", "Bajaj Finance"
-    purpose: str                 # "Home", "iPhone 15", "Education"
-    created_at: date
-```
-
-### 8.3 Loan Types
-
-| Type | Example | Payment Method |
-|------|---------|----------------|
-| Home Loan | ₹50L over 20 years | Bank auto-debit |
-| Car Loan | ₹8L over 5 years | Bank auto-debit |
-| Personal Loan | ₹2L over 2 years | Bank auto-debit |
-| Credit Card EMI | ₹60K over 12 months | Added to CC bill |
-| BNPL | ₹10K over 3 months | Auto-charge |
-
-### 8.4 EMI as Recurring Transaction
-
-Each loan auto-creates a recurring transaction:
-
-```python
-def create_emi_recurring(loan):
-    return RecurringTransaction(
-        name=f"{loan.name} EMI",
-        type="emi",
-        amount=loan.emi_amount,
-        category="EMI",
-        account_id=loan.payment_account_id,
-        frequency="monthly",
-        day_of_month=loan.emi_day,
-        start_date=loan.start_date,
-        end_date=loan.start_date + months(loan.tenure_months),
-        requires_verification=True,
-        linked_loan_id=loan.id
-    )
-```
-
-### 8.5 Dashboard Widget
-
-**EMI Overview Card**:
-```
-┌─────────────────────────────────────┐
-│ 📋 Active EMIs (3)                  │
-├─────────────────────────────────────┤
-│ Home Loan        ₹45,000/mo   180▸  │
-│ Car Loan         ₹15,000/mo    36▸  │
-│ iPhone EMI       ₹5,500/mo      8▸  │
-├─────────────────────────────────────┤
-│ Total Monthly:   ₹65,500            │
-│ This Month Paid: ₹45,000 ✓          │
-│ Pending:         ₹20,500            │
-└─────────────────────────────────────┘
-```
-
-### 8.6 Detailed EMI View
-
-Tap on a loan to see:
-- Principal vs Interest breakdown
-- Amortization schedule
-- Payment history
-- Foreclosure calculator
-- Remaining balance
-
-### 8.7 Integration with Budget
-
-**EMI Budget Impact Options**:
-
-1. **Count full EMI as expense** (simple)
-   - EMI = ₹10,000 → Budget -₹10,000
-
-2. **Separate principal vs interest** (advanced)
-   - Principal (₹8,000) = Savings/Asset building
-   - Interest (₹2,000) = Expense
-   
-**Recommendation**: Option 1 for v0.3, Option 2 as future enhancement
-
----
-
-## Implementation Priority
-
-### Phase 1: v0.3.0 (Foundation) ✅ COMPLETED
-| Feature | Effort | Priority | Status |
-|---------|--------|----------|--------|
-| Category Management (add/edit/delete) | Low | High | ✅ Done |
-| Data Clear with Confirmation | Low | High | ✅ Done |
-| Monthly Reset (configurable day 1-28) | Medium | High | ✅ Done |
-| Carry Over (basic toggle + cap) | Medium | Medium | ✅ Done |
-
-### Phase 2: v0.3.x (Accounts)
-| Feature | Effort | Priority |
-|---------|--------|----------|
-| Multiple Accounts (basic) | High | High |
-| Account-wise filtering | Medium | High |
-| Transfer between accounts | Medium | Medium |
-
-### Phase 3: v0.4.0 (Recurring)
-| Feature | Effort | Priority |
-|---------|--------|----------|
-| Recurring Transactions | High | High |
-| Verification Flow | Medium | High |
-| Pending Transactions UI | Medium | High |
-
-### Phase 4: v0.4.x (Credit & Loans)
-| Feature | Effort | Priority |
-|---------|--------|----------|
-| Credit Card Tracking | Very High | Medium |
-| EMI/Loan Tracking | High | Medium |
-| Payment Reminders | Medium | Medium |
-
----
-
-## Open Discussion Points
-
-### 1. Data Sync
-- Should we support cloud backup/sync?
-- Privacy: All local vs optional cloud?
-
-### 2. Multi-Currency
-- Support for USD, EUR, etc.?
-- Conversion rates: Manual or API?
-
-### 3. Reports & Analytics
-- Monthly spending report
-- Year-over-year comparison
-- Export to PDF/Excel
-
-### 4. Notifications
-- How to handle on Termux (no push notifications)?
-- In-app reminders only?
-- Daily summary at set time?
-
-### 5. Budgets per Category
-- Set limits: "Max ₹5,000 on Food"
-- Alerts when approaching limit
-
-### 6. Goals
-- "Save ₹50,000 for vacation"
-- Track progress toward goal
-
----
-
-## Technical Considerations
-
-### Database Migrations
-- Each feature may require schema changes
-- Need migration system for SQLite
-- Backup before migration
-
-### Backward Compatibility
-- Old backups should still import
-- Version checking in import/export
-
-### Performance
-- As data grows, queries may slow
-- Consider indexing strategy
-- Pagination for large lists
-
----
-
-## Next Steps
-
-1. **Review this document** and add comments/questions
-2. **Prioritize** features for v0.3.0
-3. **Design database schema** for approved features
-4. **Create implementation plan** with milestones
-
----
-
-*Last Updated: February 13, 2026*
-
+## API Reference Summary
+
+### Events
+- `POST /api/events` - Create event with account
+- `GET /api/events` - List events
+- `DELETE /api/events/{id}` - Delete event
+- `GET /api/events/timeline` - Activity timeline
+
+### Friends
+- `POST /api/friends` - Create friend
+- `GET /api/friends` - List with balances
+- `GET /api/friends/{id}` - Details with events
+- `PUT /api/friends/{id}` - Update friend
+- `DELETE /api/friends/{id}` - Delete friend
+
+### Accounts
+- `POST /api/accounts` - Create account
+- `GET /api/accounts` - List accounts
+- `GET /api/accounts/{id}` - Account details
+- `PUT /api/accounts/{id}` - Update account
+- `DELETE /api/accounts/{id}` - Delete/deactivate
+- `GET /api/accounts/{id}/events` - Account transactions
+- `POST /api/accounts/transfer` - Transfer funds
+
+### Loans
+- `POST /api/loans` - Create loan
+- `GET /api/loans` - List loans
+- `GET /api/loans/{id}` - Loan details
+- `PUT /api/loans/{id}` - Update loan
+- `DELETE /api/loans/{id}` - Close/delete loan
+- `POST /api/loans/{id}/pay` - Record payment
+- `GET /api/loans/{id}/schedule` - Amortization
+
+### Recurring
+- `POST /api/recurring` - Create recurring
+- `GET /api/recurring` - List recurring
+- `GET /api/recurring/{id}` - Details
+- `PUT /api/recurring/{id}` - Update
+- `DELETE /api/recurring/{id}` - Deactivate
+- `GET /api/recurring/pending` - Pending items
+- `POST /api/recurring/pending/{id}/confirm` - Confirm
+- `POST /api/recurring/pending/{id}/skip` - Skip

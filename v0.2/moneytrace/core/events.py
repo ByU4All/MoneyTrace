@@ -1,5 +1,5 @@
 """
-Event types - the four financial primitives from idea.md
+Event types - the financial primitives from idea.md
 
 This is the SINGLE source of truth for event types.
 All other modules import from here.
@@ -10,7 +10,7 @@ from enum import Enum
 
 class EventType(str, Enum):
     """
-    The four financial primitives + budget adjustment.
+    Financial event types.
 
     From idea.md Financial Event Impact Matrix:
 
@@ -22,6 +22,10 @@ class EventType(str, Enum):
     | Payback (you pay)     | 0             | −ve         |
     | Payback (you receive) | +ve           | +ve         |
     | Budget adjustment     | +ve           | 0           |
+    | Transfer              | 0             | 0           |
+    | Income                | +ve           | +ve         |
+    | Credit Card Payment   | 0             | −ve         |
+    | EMI Payment           | −ve           | −ve         |
     """
 
     # Money actually spent
@@ -42,3 +46,70 @@ class EventType(str, Enum):
     # Extra money available (gift, refund, etc.)
     BUDGET_ADJUSTMENT = "budget_adjustment"
 
+    # Transfer between accounts (no budget impact)
+    TRANSFER = "transfer"
+
+    # Income (salary, rental, etc.)
+    INCOME = "income"
+
+    # Credit card bill payment
+    CREDIT_CARD_PAYMENT = "credit_card_payment"
+
+    # EMI payment for loans
+    EMI_PAYMENT = "emi_payment"
+
+
+class AccountType(str, Enum):
+    """Types of accounts that can be tracked."""
+
+    SAVINGS = "savings"
+    CURRENT = "current"
+    CASH = "cash"
+    CREDIT_CARD = "credit_card"
+    UPI_WALLET = "upi_wallet"
+    DEBIT_CARD = "debit_card"
+
+
+class RecurringFrequency(str, Enum):
+    """Frequency options for recurring transactions."""
+
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    YEARLY = "yearly"
+
+
+class LoanType(str, Enum):
+    """Types of loans/EMIs."""
+
+    HOME_LOAN = "home_loan"
+    CAR_LOAN = "car_loan"
+    PERSONAL_LOAN = "personal_loan"
+    CREDIT_CARD_EMI = "credit_card_emi"
+    BNPL = "bnpl"  # Buy Now Pay Later
+    OTHER = "other"
+
+
+class AuditAction(str, Enum):
+    """Types of audit trail actions for tracking all changes."""
+
+    # Entity CRUD operations
+    CREATE = "create"
+    UPDATE = "update"
+    DELETE = "delete"
+
+    # Special actions
+    CLOSE = "close"  # For loans - closed but record kept
+    UNLINK = "unlink"  # For soft deletes - record kept but unlinked
+
+
+class EntityType(str, Enum):
+    """Types of entities that can be audited."""
+
+    EVENT = "event"
+    FRIEND = "friend"
+    ACCOUNT = "account"
+    LOAN = "loan"
+    RECURRING = "recurring"
+    CATEGORY = "category"
+    SETTINGS = "settings"

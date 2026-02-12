@@ -1,6 +1,6 @@
 [project]
 name = "moneytrace"
-version = "0.3.0"
+version = "0.4.0"
 description = "Personal finance tracking for Android - conservative budgeting, event-driven ledger"
 readme = "README.md"
 requires-python = ">=3.11"

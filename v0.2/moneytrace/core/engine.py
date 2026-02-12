@@ -32,6 +32,7 @@ def compute_available_budget(
                          + Sum(BudgetAdjustments)
                          - Sum(Cash Expenses)
                          - Sum(Outstanding Liabilities)
+                         - Sum(EMI Payments)
 
     Args:
         base_budget: Monthly budget in minor units (paise)
@@ -62,10 +63,46 @@ def compute_available_budget(
             # Extra money -> budget up
             budget += amount
 
+        elif etype == EventType.EMI_PAYMENT:
+            # EMI payment -> budget down (it's a recurring obligation)
+            budget -= amount
+
         # RECEIVABLE -> no budget impact (informational)
         # SETTLEMENT_PAID -> no budget impact (already counted in LIABILITY)
+        # INCOME -> no direct budget impact (goes to account balance)
+        # TRANSFER -> no budget impact
 
     return budget
+
+
+# ---------------------------------------------------------------------------
+# Unpaid Recurring Commitments
+# ---------------------------------------------------------------------------
+
+def compute_unpaid_commitments(unpaid_recurring: Iterable[dict]) -> int:
+    """
+    Compute total amount reserved for unpaid recurring transactions.
+
+    These are recurring transactions due this month that haven't been paid yet.
+    They reduce the available budget because the money is "committed".
+
+    Args:
+        unpaid_recurring: List of unpaid recurring dicts with 'type' and 'amount'
+
+    Returns:
+        Total committed amount in minor units (paise)
+    """
+    total = 0
+
+    for rec in unpaid_recurring:
+        rec_type = rec.get("type", "")
+        amount = rec.get("amount", 0)
+
+        # Only count expense types that reduce budget
+        if rec_type in ("expense", "emi_payment"):
+            total += amount
+
+    return total
 
 
 # ---------------------------------------------------------------------------

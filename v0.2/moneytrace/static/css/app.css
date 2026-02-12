@@ -223,6 +223,7 @@ html, body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--space-md);
+    margin-bottom: var(--space-md);
 }
 
 .summary-card {
@@ -241,6 +242,14 @@ html, body {
 .summary-card-value {
     font-size: var(--font-size-lg);
     font-weight: 600;
+}
+
+.summary-card-value.positive {
+    color: var(--success);
+}
+
+.summary-card-value.negative {
+    color: var(--danger);
 }
 
 /* ---------------------------------------------------------------------------
@@ -539,36 +548,363 @@ select.form-input {
 }
 
 /* ---------------------------------------------------------------------------
-   Utilities
+   View/Edit Modal Styles
 --------------------------------------------------------------------------- */
+
+/* Detail Summary */
+.detail-summary {
+    text-align: center;
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-lg);
+}
+
+.detail-amount {
+    font-size: var(--font-size-xxl);
+    font-weight: 700;
+    margin-bottom: var(--space-xs);
+}
+
+.detail-amount.positive {
+    color: var(--success);
+}
+
+.detail-amount.negative {
+    color: var(--danger);
+}
+
+.detail-meta {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+/* Loan Detail Styles */
+.loan-detail-summary {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.loan-progress-section {
+    margin-bottom: var(--space-md);
+}
+
+.progress-bar.large {
+    height: 10px;
+    margin-bottom: var(--space-sm);
+}
+
+.progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.loan-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-md);
+}
+
+.loan-stat {
+    text-align: center;
+}
+
+.loan-stat .stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+
+.loan-stat .stat-value {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.loan-stat .stat-value.danger {
+    color: var(--danger);
+}
+
+.loan-stat .stat-value.success {
+    color: var(--success);
+}
+
+/* ---------------------------------------------------------------------------
+   Budget Breakdown Modal
+--------------------------------------------------------------------------- */
+.budget-breakdown {
+    background: var(--bg-input);
+    border-radius: var(--border-radius);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-sm) 0;
+    font-size: var(--font-size-md);
+}
+
+.breakdown-item.positive .breakdown-value {
+    color: var(--success);
+}
+
+.breakdown-item.negative .breakdown-value {
+    color: var(--danger);
+}
+
+.breakdown-item.total {
+    font-size: var(--font-size-lg);
+    padding-top: var(--space-md);
+}
+
+.breakdown-divider {
+    border-top: 1px solid rgba(255,255,255,0.2);
+    margin: var(--space-sm) 0;
+}
+
+.breakdown-details {
+    background: var(--bg-input);
+    border-radius: var(--border-radius);
+    padding: var(--space-md);
+}
+
+.breakdown-details h4 {
+    margin-bottom: var(--space-md);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.detail-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   Type Selector Secondary Row
+--------------------------------------------------------------------------- */
+.type-selector-secondary {
+    margin-top: var(--space-sm);
+    background: rgba(255,255,255,0.03);
+}
+
+/* ---------------------------------------------------------------------------
+   Settlement Toggle
+--------------------------------------------------------------------------- */
+.settlement-toggle {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.settlement-btn {
+    flex: 1;
+    padding: var(--space-md);
+    background: var(--bg-input);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--border-radius);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.settlement-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+   Transfer Group & Form Columns
+--------------------------------------------------------------------------- */
+.form-row {
+    display: flex;
+    gap: var(--space-md);
+}
+
+.form-col {
+    flex: 1;
+}
+
+.form-label-small {
+    display: block;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xs);
+}
+
+/* ---------------------------------------------------------------------------
+   History Filter
+--------------------------------------------------------------------------- */
+.history-filter {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+}
+
+.filter-btn {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    background: transparent;
+    border: none;
+    border-radius: var(--border-radius);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn.active {
+    background: var(--accent);
+    color: white;
+}
+
+/* ---------------------------------------------------------------------------
+   Audit Items in Timeline
+--------------------------------------------------------------------------- */
+.audit-item {
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid var(--text-muted);
+}
+
+.audit-item .list-item-title {
+    font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   Friend Detail Modal
+--------------------------------------------------------------------------- */
+.friend-detail-summary {
+    text-align: center;
+    margin-bottom: var(--space-md);
+}
+
+.balance-display {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    margin-bottom: var(--space-sm);
+}
+
+.balance-display.positive {
+    color: var(--success);
+}
+
+.balance-display.negative {
+    color: var(--danger);
+}
+
+.friend-phone {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.friend-events-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Account Detail Modal
+--------------------------------------------------------------------------- */
+.account-detail-summary {
+    text-align: center;
+    margin-bottom: var(--space-md);
+}
+
+.account-meta {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    margin-top: var(--space-xs);
+}
+
+.credit-info {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-md);
+    margin-top: var(--space-sm);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.account-events-list {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Section Divider
+--------------------------------------------------------------------------- */
+.section-divider {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin: var(--space-md) 0;
+}
+
+/* ---------------------------------------------------------------------------
+   List Item Mini
+--------------------------------------------------------------------------- */
+.list-item.mini {
+    padding: var(--space-sm) var(--space-md);
+}
+
+.list-item.mini .list-item-title {
+    font-size: var(--font-size-sm);
+}
+
+.list-item.mini .list-item-subtitle {
+    font-size: var(--font-size-xs);
+}
+
+.list-item.mini .list-item-value {
+    font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   Empty State Small
+--------------------------------------------------------------------------- */
+.empty-state-small {
+    padding: var(--space-md);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   Utility Classes
+--------------------------------------------------------------------------- */
+.mb-md {
+    margin-bottom: var(--space-md) !important;
+}
+
+.mt-md {
+    margin-top: var(--space-md) !important;
+}
+
 .hidden {
     display: none !important;
 }
 
-.text-center {
-    text-align: center;
-}
-
-.text-muted {
-    color: var(--text-secondary);
-}
-
-.mt-sm { margin-top: var(--space-sm); }
-.mt-md { margin-top: var(--space-md); }
-.mt-lg { margin-top: var(--space-lg); }
-
-.mb-sm { margin-bottom: var(--space-sm); }
-.mb-md { margin-bottom: var(--space-md); }
-.mb-lg { margin-bottom: var(--space-lg); }
-
 /* ---------------------------------------------------------------------------
-   Screen-specific
+   Dashboard Specific Styles
 --------------------------------------------------------------------------- */
+.screen-dashboard {
+    padding-bottom: var(--space-lg);
+}
 
-/* Dashboard */
 .dashboard-budget {
     text-align: center;
-    padding: var(--space-lg) 0;
 }
 
 .dashboard-budget-label {
@@ -576,47 +912,25 @@ select.form-input {
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    margin-bottom: var(--space-xs);
 }
 
 .dashboard-budget-value {
-    font-size: 48px;
+    font-size: var(--font-size-xxl);
     font-weight: 700;
-    margin: var(--space-sm) 0;
 }
 
 .dashboard-budget-base {
     font-size: var(--font-size-sm);
     color: var(--text-secondary);
+    margin-top: var(--space-xs);
 }
 
-/* Friend balance indicator */
-.balance-indicator {
-    display: inline-flex;
-    align-items: center;
-    padding: var(--space-xs) var(--space-sm);
-    border-radius: 4px;
-    font-size: var(--font-size-xs);
-    font-weight: 500;
-}
-
-.balance-indicator.owes-you {
-    background: rgba(78, 204, 163, 0.2);
-    color: var(--success);
-}
-
-.balance-indicator.you-owe {
-    background: rgba(233, 69, 96, 0.2);
-    color: var(--danger);
-}
-
-/* ---------------------------------------------------------------------------
-   Dashboard Sections
---------------------------------------------------------------------------- */
 .dashboard-section {
     background: var(--bg-card);
     border-radius: var(--border-radius);
     padding: var(--space-md);
-    margin-top: var(--space-md);
+    margin-bottom: var(--space-md);
 }
 
 .section-header-small {
@@ -624,15 +938,12 @@ select.form-input {
     align-items: center;
     gap: var(--space-sm);
     font-size: var(--font-size-sm);
-    font-weight: 600;
     color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
     margin-bottom: var(--space-md);
 }
 
 .section-icon {
-    font-size: 18px;
+    font-size: var(--font-size-lg);
 }
 
 /* Friend Balance List */
@@ -646,16 +957,15 @@ select.form-input {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: var(--space-sm) var(--space-md);
-    background: var(--bg-secondary);
-    border-radius: 8px;
+    padding: var(--space-sm);
+    background: var(--bg-input);
+    border-radius: var(--border-radius);
     cursor: pointer;
     transition: background 0.2s;
-    min-height: var(--touch-target);
 }
 
-.friend-balance-item:active {
-    background: var(--bg-primary);
+.friend-balance-item:hover {
+    background: var(--bg-secondary);
 }
 
 .friend-name {
@@ -664,7 +974,6 @@ select.form-input {
 
 .friend-amount {
     font-weight: 600;
-    font-size: var(--font-size-md);
 }
 
 .friend-amount.positive {
@@ -675,7 +984,7 @@ select.form-input {
     color: var(--danger);
 }
 
-/* Category Spending List */
+/* Category Spending */
 .category-spend-list {
     display: flex;
     flex-direction: column;
@@ -683,119 +992,260 @@ select.form-input {
 }
 
 .category-spend-item {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-    gap: var(--space-xs) var(--space-sm);
+    display: flex;
     align-items: center;
+    gap: var(--space-md);
 }
 
 .category-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    grid-column: 1 / -1;
+    flex: 1;
+    min-width: 0;
 }
 
-.category-name {
+.category-spend-item .category-name {
+    font-size: var(--font-size-sm);
     font-weight: 500;
-    font-size: var(--font-size-sm);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.category-amount {
-    font-weight: 600;
-    font-size: var(--font-size-sm);
+.category-spend-item .category-amount {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
 }
 
 .category-bar-container {
-    height: 8px;
-    background: var(--bg-primary);
-    border-radius: 4px;
+    flex: 2;
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
     overflow: hidden;
-    grid-column: 1;
 }
 
 .category-bar {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent), #ff6b6b);
-    border-radius: 4px;
-    transition: width 0.3s ease;
+    background: var(--accent);
+    border-radius: 3px;
 }
 
 .category-percentage {
     font-size: var(--font-size-xs);
     color: var(--text-secondary);
-    min-width: 40px;
+    width: 35px;
     text-align: right;
 }
 
 /* ---------------------------------------------------------------------------
-   Friend Modal
+   Summary Card Single (full width)
 --------------------------------------------------------------------------- */
-.friend-modal-balance {
+.summary-card-single {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: var(--space-md);
     text-align: center;
-    font-size: var(--font-size-lg);
-    font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------------
+   Menu List (More Screen)
+--------------------------------------------------------------------------- */
+.menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
     padding: var(--space-md);
     background: var(--bg-card);
     border-radius: var(--border-radius);
-    margin-bottom: var(--space-md);
+    cursor: pointer;
+    transition: background 0.2s;
 }
 
-.friend-modal-balance.positive {
+.menu-item:hover {
+    background: var(--bg-secondary);
+}
+
+.menu-icon {
+    font-size: var(--font-size-lg);
+}
+
+.menu-label {
+    flex: 1;
+    font-weight: 500;
+}
+
+.menu-arrow {
+    color: var(--text-secondary);
+    font-size: var(--font-size-lg);
+}
+
+/* ---------------------------------------------------------------------------
+   Balance Indicators in Friends List
+--------------------------------------------------------------------------- */
+.balance-indicator {
+    display: inline-block;
+    font-size: var(--font-size-xs);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 2px;
+}
+
+.balance-indicator.owes-you {
+    background: rgba(78, 204, 163, 0.2);
     color: var(--success);
 }
 
-.friend-modal-balance.negative {
+.balance-indicator.you-owe {
+    background: rgba(233, 69, 96, 0.2);
     color: var(--danger);
 }
 
-.friend-events-list {
-    max-height: 50vh;
-    overflow-y: auto;
+/* ---------------------------------------------------------------------------
+   Loans Screen
+--------------------------------------------------------------------------- */
+.loan-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+    cursor: pointer;
 }
 
-.friend-events-list .list-item {
+.loan-item.inactive {
+    opacity: 0.6;
+}
+
+.loan-info {
+    flex: 1;
+}
+
+.loan-amount {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.emi-amount {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.outstanding-small {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.progress-bar {
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    margin-top: var(--space-sm);
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--success);
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+/* ---------------------------------------------------------------------------
+   Credit Card Item
+--------------------------------------------------------------------------- */
+.credit-card-item {
+    cursor: pointer;
+}
+
+.credit-limit-small {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+   Recurring Screen
+--------------------------------------------------------------------------- */
+.pending-section {
+    margin-bottom: var(--space-lg);
+}
+
+.pending-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
     background: var(--bg-card);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-sm);
+    border-left: 4px solid var(--warning);
+}
+
+.pending-item .list-item-content {
+    flex: 1;
+}
+
+.pending-actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.confirm-pending-btn,
+.skip-pending-btn {
+    padding: var(--space-sm);
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: var(--font-size-md);
+}
+
+.confirm-pending-btn {
+    background: var(--success);
+    color: white;
+}
+
+.skip-pending-btn {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+.recurring-item {
+    cursor: pointer;
+}
+
+.recurring-item.inactive {
+    opacity: 0.6;
 }
 
 /* ---------------------------------------------------------------------------
    Settings Tabs
 --------------------------------------------------------------------------- */
-.modal-large {
-    max-height: 85vh;
-    overflow-y: auto;
-}
-
-.modal-small {
-    max-width: 320px;
-}
-
 .settings-tabs {
     display: flex;
-    gap: var(--space-xs);
-    margin-bottom: var(--space-md);
-    padding: var(--space-xs);
-    background: var(--bg-primary);
-    border-radius: var(--border-radius);
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
 .settings-tab {
     flex: 1;
-    padding: var(--space-sm) var(--space-md);
+    padding: var(--space-sm);
     background: transparent;
     border: none;
     color: var(--text-secondary);
     font-size: var(--font-size-sm);
-    font-weight: 500;
-    border-radius: 8px;
     cursor: pointer;
+    border-radius: var(--border-radius);
     transition: all 0.2s;
 }
 
 .settings-tab.active {
-    background: var(--bg-card);
-    color: var(--text-primary);
+    background: var(--accent);
+    color: white;
 }
 
 .settings-tab-content {
@@ -808,83 +1258,37 @@ select.form-input {
 
 .settings-section {
     margin-top: var(--space-lg);
-    padding-top: var(--space-md);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .settings-section-title {
     font-size: var(--font-size-sm);
-    font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: var(--space-md);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    margin-bottom: var(--space-md);
 }
 
-.settings-section-title.danger {
-    color: var(--danger);
-}
-
-/* ---------------------------------------------------------------------------
-   Checkbox Styles
---------------------------------------------------------------------------- */
+/* Form Checkbox */
 .form-checkbox {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
     cursor: pointer;
-    min-height: var(--touch-target);
 }
 
 .form-checkbox input[type="checkbox"] {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     accent-color: var(--accent);
-    cursor: pointer;
 }
 
-.form-checkbox span {
-    font-size: var(--font-size-md);
-}
-
-.carry-over-options {
-    margin-left: var(--space-lg);
-    padding-left: var(--space-md);
-    border-left: 2px solid var(--bg-card);
-}
-
-/* ---------------------------------------------------------------------------
-   Category Management
---------------------------------------------------------------------------- */
-.category-add-form {
-    display: flex;
-    gap: var(--space-sm);
-    margin-bottom: var(--space-md);
-}
-
-.category-add-form .form-input {
-    flex: 1;
-}
-
-.category-add-form .btn {
-    flex-shrink: 0;
-}
-
-.category-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-sm);
-    max-height: 300px;
-    overflow-y: auto;
-}
-
+/* Category Item in Settings */
 .category-item {
     display: flex;
     align-items: center;
-    padding: var(--space-sm) var(--space-md);
-    background: var(--bg-card);
-    border-radius: 8px;
-    min-height: var(--touch-target);
+    padding: var(--space-sm);
+    background: var(--bg-input);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-sm);
 }
 
 .category-item .category-name {
@@ -892,10 +1296,10 @@ select.form-input {
     font-weight: 500;
 }
 
-.category-item .category-usage {
+.category-usage {
     font-size: var(--font-size-xs);
-    color: var(--text-muted);
-    margin-right: var(--space-sm);
+    color: var(--text-secondary);
+    margin-right: var(--space-md);
 }
 
 .category-actions {
@@ -904,73 +1308,173 @@ select.form-input {
 }
 
 .btn-icon {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     background: transparent;
     border: none;
-    border-radius: 8px;
+    padding: var(--space-xs);
     cursor: pointer;
-    font-size: 16px;
-    transition: background 0.2s;
+    font-size: var(--font-size-md);
 }
 
-.btn-icon:active {
-    background: var(--bg-primary);
-}
-
-/* ---------------------------------------------------------------------------
-   Clear Data Confirmation
---------------------------------------------------------------------------- */
-.clear-data-warning {
-    background: rgba(233, 69, 96, 0.1);
-    border: 1px solid var(--danger);
-    border-radius: var(--border-radius);
-    padding: var(--space-md);
+/* Add Category Form */
+.add-category-form {
+    display: flex;
+    gap: var(--space-sm);
     margin-bottom: var(--space-md);
 }
 
-.clear-data-warning p {
-    margin-bottom: var(--space-sm);
+.add-category-form input {
+    flex: 1;
 }
 
-.clear-data-warning ul {
-    margin-left: var(--space-lg);
-    color: var(--text-secondary);
-}
-
-.clear-data-warning li {
-    margin-bottom: var(--space-xs);
-}
-
-/* ---------------------------------------------------------------------------
-   Danger Button
---------------------------------------------------------------------------- */
-.btn-danger {
-    background: var(--danger);
+/* Badge */
+.badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: var(--font-size-xs);
+    background: var(--accent);
     color: white;
+    border-radius: 4px;
+    margin-left: var(--space-xs);
 }
 
-.btn-danger:disabled {
-    background: var(--bg-card);
-    color: var(--text-muted);
-    cursor: not-allowed;
+.badge-small {
+    font-size: 10px;
+    padding: 1px 4px;
 }
 
-/* ---------------------------------------------------------------------------
-   Modal Actions
---------------------------------------------------------------------------- */
+/* Modal Actions */
 .modal-actions {
     display: flex;
-    gap: var(--space-sm);
-    margin-top: var(--space-md);
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
 }
 
 .modal-actions .btn {
     flex: 1;
 }
 
+/* Danger Button */
+.btn-danger {
+    background: var(--danger);
+    color: white;
+}
 
+/* Modal Large */
+.modal-large {
+    max-height: 90vh;
+}
+
+/* Modal Small */
+.modal-small {
+    max-height: 60vh;
+}
+
+/* ---------------------------------------------------------------------------
+   Upcoming Bills Section (Dashboard)
+--------------------------------------------------------------------------- */
+.upcoming-bills-section {
+    margin-bottom: var(--space-md);
+}
+
+.upcoming-bills-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.upcoming-bill-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-input);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.upcoming-bill-item:hover {
+    background: var(--bg-secondary);
+}
+
+.upcoming-bill-item.overdue {
+    border-left: 3px solid var(--danger);
+}
+
+.upcoming-bill-item.due-soon {
+    border-left: 3px solid var(--warning);
+}
+
+.upcoming-bill-item.upcoming {
+    border-left: 3px solid var(--text-muted);
+}
+
+.bill-icon {
+    font-size: var(--font-size-lg);
+}
+
+.bill-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.bill-name {
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.bill-due {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.bill-amount {
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   Autopay Badge
+--------------------------------------------------------------------------- */
+.autopay-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    background: rgba(78, 204, 163, 0.2);
+    color: var(--success);
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------------------
+   Reserved Amount Display
+--------------------------------------------------------------------------- */
+.reserved-amount {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    color: var(--warning);
+    font-weight: 500;
+}
+
+.budget-reserved {
+    font-size: var(--font-size-xs);
+    color: var(--warning);
+    opacity: 0.8;
+}
+
+/* ---------------------------------------------------------------------------
+   Overdue styling in breakdown
+--------------------------------------------------------------------------- */
+.detail-item.overdue {
+    color: var(--danger);
+}
+
+.detail-item.overdue span:first-child::after {
+    content: ' (overdue)';
+    font-size: var(--font-size-xs);
+}
 

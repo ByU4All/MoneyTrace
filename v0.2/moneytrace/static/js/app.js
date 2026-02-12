@@ -8,6 +8,8 @@
 const App = {
     currentScreen: 'dashboard',
     showAddFriendForm: false,
+    currentAccounts: [],
+    currentCategories: [],
 
     // -------------------------------------------------------------------------
     // Initialization
@@ -66,6 +68,21 @@ const App = {
             case 'history':
                 await this.loadHistory(main);
                 break;
+            case 'accounts':
+                await this.loadAccounts(main);
+                break;
+            case 'recurring':
+                await this.loadRecurring(main);
+                break;
+            case 'more':
+                await this.loadMore(main);
+                break;
+            case 'loans':
+                await this.loadLoans(main);
+                break;
+            case 'creditcards':
+                await this.loadCreditCards(main);
+                break;
         }
     },
 
@@ -91,75 +108,117 @@ const App = {
     },
 
     bindDashboardHandlers() {
+        // Handle clicking on budget card to show breakdown
+        const budgetCard = document.querySelector('.budget-card');
+        if (budgetCard) {
+            budgetCard.style.cursor = 'pointer';
+            budgetCard.addEventListener('click', () => {
+                this.showBudgetBreakdown();
+            });
+        }
+
         // Handle clicking on friend items to view details
         document.querySelectorAll('.friend-balance-item').forEach(item => {
             item.addEventListener('click', () => {
                 const friendId = item.dataset.friendId;
                 if (friendId) {
-                    this.showFriendDetails(friendId);
+                    this.showFriendDetailsModal(friendId);
                 }
             });
         });
     },
 
-    async showFriendDetails(friendId) {
+    async showBudgetBreakdown() {
         try {
-            const data = await API.getFriendDetails(friendId);
-            this.showFriendModal(data);
+            const data = await API.getBudgetBreakdown();
+            this.showBudgetBreakdownModal(data);
         } catch (err) {
-            this.showToast('Failed to load friend details', 'error');
+            this.showToast('Failed to load breakdown', 'error');
         }
     },
 
-    showFriendModal(data) {
+    showBudgetBreakdownModal(data) {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
-        overlay.id = 'friend-modal';
-
-        const balanceClass = data.balance >= 0 ? 'positive' : 'negative';
-        const balanceText = data.balance >= 0
-            ? `Owes you ₹${Math.abs(data.balance / 100).toLocaleString('en-IN')}`
-            : `You owe ₹${Math.abs(data.balance / 100).toLocaleString('en-IN')}`;
-
-        const eventsHtml = data.events && data.events.length > 0
-            ? data.events.map(e => `
-                <div class="list-item">
-                    <div class="list-item-icon">${Screens.getEventIcon(e.type)}</div>
-                    <div class="list-item-content">
-                        <div class="list-item-title">${e.description || e.category || Screens.getEventTypeName(e.type)}</div>
-                        <div class="list-item-subtitle">${Screens.getEventTypeName(e.type)} • ${new Date(e.event_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</div>
-                    </div>
-                    <div class="list-item-value">₹${(e.amount / 100).toLocaleString('en-IN')}</div>
-                </div>
-            `).join('')
-            : '<p class="text-center text-muted">No transactions yet</p>';
+        overlay.id = 'budget-breakdown-modal';
 
         const modal = document.createElement('div');
         modal.className = 'modal';
-        modal.innerHTML = `
-            <div class="modal-header">
-                <h2 class="modal-title">${data.friend.name}</h2>
-                <button class="modal-close" id="close-friend-modal">✕</button>
-            </div>
-            <div class="friend-modal-balance ${balanceClass}">
-                ${balanceText}
-            </div>
-            <div class="section-header-small mt-md">
-                <span>Transaction History</span>
-            </div>
-            <div class="friend-events-list">
-                ${eventsHtml}
-            </div>
-        `;
+        modal.innerHTML = Screens.budgetBreakdownModal(data);
 
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
         // Close handlers
-        document.getElementById('close-friend-modal').addEventListener('click', () => overlay.remove());
+        document.getElementById('close-budget-breakdown').addEventListener('click', () => overlay.remove());
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) overlay.remove();
         });
+    },
+
+    async showFriendDetailsModal(friendId) {
+        try {
+            const data = await API.getFriendDetails(friendId);
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.id = 'friend-modal';
+
+            const modal = document.createElement('div');
+            modal.className = 'modal modal-large';
+            modal.innerHTML = Screens.viewFriendModal(data.friend, data.balance, data.events);
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            this.bindFriendModalHandlers(overlay, data.friend.id);
+        } catch (err) {
+            this.showToast('Failed to load friend details', 'error');
+        }
+    },
+
+    bindFriendModalHandlers(overlay, friendId) {
+        // Close handler
+        document.getElementById('close-view-friend').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        // Edit form
+        const editForm = document.getElementById('edit-friend-form');
+        if (editForm) {
+            editForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(editForm);
+                try {
+                    await API.updateFriend(friendId, {
+                        name: formData.get('name'),
+                        phone: formData.get('phone') || null
+                    });
+                    this.showToast('Friend updated!', 'success');
+                    overlay.remove();
+                    this.showScreen(this.currentScreen);
+                } catch (err) {
+                    this.showToast('Error: ' + err.message, 'error');
+                }
+            });
+        }
+
+        // Delete button
+        const deleteBtn = document.getElementById('delete-friend-btn');
+        if (deleteBtn && !deleteBtn.disabled) {
+            deleteBtn.addEventListener('click', async () => {
+                if (confirm('Delete this friend?')) {
+                    try {
+                        await API.deleteFriend(friendId);
+                        this.showToast('Friend deleted!', 'success');
+                        overlay.remove();
+                        this.showScreen(this.currentScreen);
+                    } catch (err) {
+                        this.showToast('Error: ' + err.message, 'error');
+                    }
+                }
+            });
+        }
     },
 
     // -------------------------------------------------------------------------
@@ -170,39 +229,123 @@ const App = {
         container.innerHTML = '<div class="loading">Loading...</div>';
 
         try {
-            const [categories, friends] = await Promise.all([
+            const [categories, friends, accounts] = await Promise.all([
                 API.getCategoryList(),
-                API.getFriends()
+                API.getFriends(),
+                API.getAccounts()
             ]);
 
-            container.innerHTML = Screens.addEvent(categories, friends);
+            container.innerHTML = Screens.addEvent(categories, friends, accounts);
             this.bindAddEventHandlers();
         } catch (err) {
-            container.innerHTML = Screens.addEvent([], []);
+            container.innerHTML = Screens.addEvent([], [], []);
             this.bindAddEventHandlers();
         }
     },
 
     bindAddEventHandlers() {
-        // Type selector
+        const accountLabel = document.getElementById('account-label');
+        const accountHelp = document.getElementById('account-help');
+        const categoryGroup = document.getElementById('category-group');
+        const categorySelect = document.querySelector('select[name="category"]');
+        const accountGroup = document.getElementById('account-group');
+        const transferGroup = document.getElementById('transfer-group');
+        const friendGroup = document.getElementById('friend-group');
+        const friendSelect = document.querySelector('select[name="friend_id"]');
+        const settlementDirectionGroup = document.getElementById('settlement-direction-group');
+
+        // Type selector - handles all event types
         document.querySelectorAll('.type-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
-                const type = btn.dataset.type;
-                document.querySelector('input[name="type"]').value = type;
+                let type = btn.dataset.type;
 
-                // Show/hide friend selector
-                const friendGroup = document.getElementById('friend-group');
-                const friendSelect = document.querySelector('select[name="friend_id"]');
+                // Handle settlement - need to show direction selector
+                if (type === 'settlement') {
+                    settlementDirectionGroup.classList.remove('hidden');
+                    type = 'settlement_paid'; // Default to paying
+                    document.querySelector('input[name="type"]').value = type;
+                } else {
+                    settlementDirectionGroup.classList.add('hidden');
+                    document.querySelector('input[name="type"]').value = type;
+                }
 
-                if (type === 'liability' || type === 'receivable') {
+                // Show/hide friend selector for friend-related types
+                if (type === 'liability' || type === 'receivable' ||
+                    type === 'settlement_paid' || type === 'settlement_received' ||
+                    type === 'settlement') {
                     friendGroup.classList.remove('hidden');
                     friendSelect.required = true;
                 } else {
                     friendGroup.classList.add('hidden');
                     friendSelect.required = false;
+                }
+
+                // Show/hide transfer group for transfers
+                if (type === 'transfer') {
+                    accountGroup.classList.add('hidden');
+                    transferGroup.classList.remove('hidden');
+                    categoryGroup.classList.add('hidden');
+                    categorySelect.required = false;
+                } else {
+                    accountGroup.classList.remove('hidden');
+                    transferGroup.classList.add('hidden');
+                }
+
+                // Update labels and visibility based on type
+                if (type === 'expense') {
+                    accountLabel.textContent = 'Paid From';
+                    accountHelp.textContent = 'Which account was used for payment?';
+                    categoryGroup.classList.remove('hidden');
+                    categorySelect.required = true;
+                } else if (type === 'income') {
+                    accountLabel.textContent = 'Deposit To';
+                    accountHelp.textContent = 'Which account received the money?';
+                    categoryGroup.classList.remove('hidden');
+                    categorySelect.required = true;
+                } else if (type === 'liability') {
+                    accountLabel.textContent = 'Account (Optional)';
+                    accountHelp.textContent = 'Friend paid - no account deducted';
+                    categoryGroup.classList.remove('hidden');
+                    categorySelect.required = true;
+                } else if (type === 'receivable') {
+                    accountLabel.textContent = 'Paid From';
+                    accountHelp.textContent = 'You paid for friend from this account';
+                    categoryGroup.classList.remove('hidden');
+                    categorySelect.required = true;
+                } else if (type === 'settlement_paid' || type === 'settlement') {
+                    accountLabel.textContent = 'Paid From';
+                    accountHelp.textContent = 'Account used to pay back friend';
+                    categoryGroup.classList.add('hidden');
+                    categorySelect.required = false;
+                } else if (type === 'settlement_received') {
+                    accountLabel.textContent = 'Received To';
+                    accountHelp.textContent = 'Account where friend paid you';
+                    categoryGroup.classList.add('hidden');
+                    categorySelect.required = false;
+                }
+            });
+        });
+
+        // Settlement direction toggle
+        document.querySelectorAll('.settlement-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.settlement-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const direction = btn.dataset.direction;
+                const type = direction === 'paid' ? 'settlement_paid' : 'settlement_received';
+                document.querySelector('input[name="type"]').value = type;
+
+                // Update label
+                if (direction === 'paid') {
+                    accountLabel.textContent = 'Paid From';
+                    accountHelp.textContent = 'Account used to pay back friend';
+                } else {
+                    accountLabel.textContent = 'Received To';
+                    accountHelp.textContent = 'Account where friend paid you';
                 }
             });
         });
@@ -220,17 +363,58 @@ const App = {
     async handleAddEvent(form) {
         const formData = new FormData(form);
         const submitBtn = form.querySelector('button[type="submit"]');
+        const eventType = formData.get('type');
 
         // Convert amount to paise
         const amountRupees = parseFloat(formData.get('amount'));
         const amountPaise = Math.round(amountRupees * 100);
 
+        // Handle transfer differently
+        if (eventType === 'transfer') {
+            const fromAccountId = formData.get('from_account_id');
+            const toAccountId = formData.get('to_account_id');
+
+            if (!fromAccountId || !toAccountId) {
+                this.showToast('Please select both accounts', 'error');
+                return;
+            }
+
+            if (fromAccountId === toAccountId) {
+                this.showToast('Cannot transfer to same account', 'error');
+                return;
+            }
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Processing...';
+
+                await API.createTransfer(
+                    fromAccountId,
+                    toAccountId,
+                    amountPaise,
+                    formData.get('description') || null
+                );
+
+                this.showToast('Transfer complete!', 'success');
+                form.reset();
+                document.querySelector('input[name="type"]').value = 'expense';
+                setTimeout(() => this.showScreen('dashboard'), 500);
+            } catch (err) {
+                this.showToast('Error: ' + err.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Add Event';
+            }
+            return;
+        }
+
         const event = {
-            type: formData.get('type'),
+            type: eventType,
             amount: amountPaise,
             category: formData.get('category') || null,
             description: formData.get('description') || null,
             friend_id: formData.get('friend_id') || null,
+            account_id: formData.get('account_id') || null,
             event_date: formData.get('event_date') || null
         };
 
@@ -295,6 +479,17 @@ const App = {
                 await this.handleAddFriend(form);
             });
         }
+
+        // Click on friend item to view details
+        document.querySelectorAll('.list-item[data-friend-id]').forEach(item => {
+            item.style.cursor = 'pointer';
+            item.addEventListener('click', () => {
+                const friendId = item.dataset.friendId;
+                if (friendId) {
+                    this.showFriendDetailsModal(friendId);
+                }
+            });
+        });
     },
 
     async handleAddFriend(form) {
@@ -325,12 +520,22 @@ const App = {
     // History
     // -------------------------------------------------------------------------
 
+    historyDetailedMode: false,
+
     async loadHistory(container) {
-        container.innerHTML = Screens.history(null);
+        container.innerHTML = '<div class="loading">Loading...</div>';
 
         try {
-            const events = await API.getEvents(50);
-            container.innerHTML = Screens.history(events);
+            if (this.historyDetailedMode) {
+                // Detailed mode - get timeline with audit trail
+                const data = await API.getTimeline(100, true);
+                container.innerHTML = Screens.historyWithFilter(data.timeline, true);
+            } else {
+                // Money only mode - get events
+                const data = await API.getTimeline(100, false);
+                container.innerHTML = Screens.historyWithFilter(data.timeline, false);
+            }
+            this.bindHistoryHandlers();
         } catch (err) {
             container.innerHTML = `
                 <div class="card">
@@ -338,6 +543,17 @@ const App = {
                 </div>
             `;
         }
+    },
+
+    bindHistoryHandlers() {
+        // Filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const detailed = btn.dataset.detailed === 'true';
+                this.historyDetailedMode = detailed;
+                this.loadHistory(document.getElementById('main-content'));
+            });
+        });
     },
 
     // -------------------------------------------------------------------------
@@ -744,6 +960,676 @@ const App = {
                 this.showToast('Error: ' + err.message, 'error');
                 confirmBtn.disabled = false;
                 confirmBtn.textContent = 'Clear All Data';
+            }
+        });
+    },
+
+    // -------------------------------------------------------------------------
+    // Accounts
+    // -------------------------------------------------------------------------
+
+    async loadAccounts(container) {
+        container.innerHTML = '<div class="loading">Loading...</div>';
+
+        try {
+            const accounts = await API.getAccounts();
+            this.currentAccounts = accounts;
+            container.innerHTML = Screens.accounts(accounts);
+            this.bindAccountsHandlers();
+        } catch (err) {
+            container.innerHTML = `<div class="card"><p class="text-center text-muted">Failed to load accounts</p></div>`;
+        }
+    },
+
+    bindAccountsHandlers() {
+        const addBtn = document.getElementById('add-account-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => this.showAddAccountModal());
+        }
+
+        // Click on account item for details
+        document.querySelectorAll('.account-item').forEach(item => {
+            item.style.cursor = 'pointer';
+            item.addEventListener('click', () => {
+                const accountId = item.dataset.accountId;
+                if (accountId) {
+                    this.showAccountDetailsModal(accountId);
+                }
+            });
+        });
+    },
+
+    async showAccountDetailsModal(accountId) {
+        try {
+            const [account, events] = await Promise.all([
+                API.getAccount(accountId),
+                API.getAccountEvents(accountId, 30)
+            ]);
+
+            const overlay = document.createElement('div');
+            overlay.className = 'modal-overlay';
+            overlay.id = 'account-modal';
+
+            const modal = document.createElement('div');
+            modal.className = 'modal modal-large';
+            modal.innerHTML = Screens.viewAccountModal(account, events);
+
+            overlay.appendChild(modal);
+            document.body.appendChild(overlay);
+
+            this.bindAccountModalHandlers(overlay, account);
+        } catch (err) {
+            this.showToast('Failed to load account details', 'error');
+        }
+    },
+
+    bindAccountModalHandlers(overlay, account) {
+        // Close handler
+        document.getElementById('close-view-account').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        // Edit form
+        const editForm = document.getElementById('edit-account-form');
+        if (editForm) {
+            editForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const formData = new FormData(editForm);
+
+                const updates = {
+                    name: formData.get('name'),
+                    institution: formData.get('institution') || null,
+                    current_balance: Math.round(parseFloat(formData.get('current_balance') || 0) * 100),
+                };
+
+                if (account.is_credit && formData.get('credit_limit')) {
+                    updates.credit_limit = Math.round(parseFloat(formData.get('credit_limit')) * 100);
+                }
+
+                try {
+                    await API.updateAccount(account.id, updates);
+                    this.showToast('Account updated!', 'success');
+                    overlay.remove();
+                    this.loadAccounts(document.getElementById('main-content'));
+                } catch (err) {
+                    this.showToast('Error: ' + err.message, 'error');
+                }
+            });
+        }
+
+        // Delete button
+        const deleteBtn = document.getElementById('delete-account-btn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', async () => {
+                if (confirm('Delete this account? Past transactions will be preserved.')) {
+                    try {
+                        await API.deleteAccount(account.id);
+                        this.showToast('Account deleted!', 'success');
+                        overlay.remove();
+                        this.loadAccounts(document.getElementById('main-content'));
+                    } catch (err) {
+                        this.showToast('Error: ' + err.message, 'error');
+                    }
+                }
+            });
+        }
+    },
+
+    showAddAccountModal() {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'add-account-modal';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.innerHTML = Screens.addAccountModal();
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Close handlers
+        document.getElementById('close-add-account').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        // Show/hide credit card fields
+        const typeSelect = document.getElementById('account-type-select');
+        typeSelect.addEventListener('change', () => {
+            const ccFields = document.querySelector('.credit-card-fields');
+            ccFields.classList.toggle('hidden', typeSelect.value !== 'credit_card');
+        });
+
+        // Form submission
+        document.getElementById('add-account-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            const account = {
+                name: formData.get('name'),
+                type: formData.get('type'),
+                institution: formData.get('institution') || null,
+                current_balance: Math.round(parseFloat(formData.get('current_balance') || 0) * 100),
+            };
+
+            if (account.type === 'credit_card') {
+                account.credit_limit = Math.round(parseFloat(formData.get('credit_limit') || 0) * 100);
+                account.billing_day = parseInt(formData.get('billing_day')) || null;
+                account.due_day = parseInt(formData.get('due_day')) || null;
+            }
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Adding...';
+
+                await API.createAccount(account);
+                overlay.remove();
+                this.showToast('Account added!', 'success');
+                this.loadAccounts(document.getElementById('main-content'));
+            } catch (err) {
+                this.showToast('Error: ' + err.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Add Account';
+            }
+        });
+    },
+
+    // -------------------------------------------------------------------------
+    // Recurring
+    // -------------------------------------------------------------------------
+
+    async loadRecurring(container) {
+        container.innerHTML = '<div class="loading">Loading...</div>';
+
+        try {
+            const [recurring, pending] = await Promise.all([
+                API.getRecurring(),
+                API.getPendingTransactions()
+            ]);
+            container.innerHTML = Screens.recurring(recurring, pending);
+            this.bindRecurringHandlers();
+        } catch (err) {
+            container.innerHTML = `<div class="card"><p class="text-center text-muted">Failed to load recurring</p></div>`;
+        }
+    },
+
+    bindRecurringHandlers() {
+        const addBtn = document.getElementById('add-recurring-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => this.showAddRecurringModal());
+        }
+
+        // Confirm pending
+        document.querySelectorAll('.confirm-pending-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const item = btn.closest('.pending-item');
+                const pendingId = item.dataset.pendingId;
+                try {
+                    await API.confirmPending(pendingId);
+                    this.showToast('Transaction confirmed!', 'success');
+                    this.loadRecurring(document.getElementById('main-content'));
+                } catch (err) {
+                    this.showToast('Error: ' + err.message, 'error');
+                }
+            });
+        });
+
+        // Skip pending
+        document.querySelectorAll('.skip-pending-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const item = btn.closest('.pending-item');
+                const pendingId = item.dataset.pendingId;
+                try {
+                    await API.skipPending(pendingId);
+                    this.showToast('Transaction skipped', 'success');
+                    this.loadRecurring(document.getElementById('main-content'));
+                } catch (err) {
+                    this.showToast('Error: ' + err.message, 'error');
+                }
+            });
+        });
+
+        // Click on recurring item to view/edit
+        document.querySelectorAll('.recurring-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const recurringId = item.dataset.recurringId;
+                if (recurringId) {
+                    this.showViewRecurringModal(recurringId);
+                }
+            });
+        });
+    },
+
+    async showViewRecurringModal(recurringId) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'view-recurring-modal';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal modal-large';
+        modal.innerHTML = '<div class="loading">Loading...</div>';
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        try {
+            const [recurring, categories, accounts] = await Promise.all([
+                API.getRecurringById(recurringId),
+                API.getCategoryList(),
+                API.getAccounts()
+            ]);
+
+            modal.innerHTML = Screens.viewRecurringModal(recurring, categories, accounts);
+            this.bindViewRecurringHandlers(overlay, recurring);
+        } catch (err) {
+            modal.innerHTML = `<p class="text-center text-muted">Failed to load details</p>`;
+        }
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+    },
+
+    bindViewRecurringHandlers(overlay, recurring) {
+        // Close button
+        document.getElementById('close-view-recurring').addEventListener('click', () => overlay.remove());
+
+        // Delete button
+        document.getElementById('delete-recurring-btn').addEventListener('click', async () => {
+            if (confirm(`Delete "${recurring.name}"?`)) {
+                try {
+                    await API.deleteRecurring(recurring.id);
+                    overlay.remove();
+                    this.showToast('Recurring deleted!', 'success');
+                    this.loadRecurring(document.getElementById('main-content'));
+                } catch (err) {
+                    this.showToast('Error: ' + err.message, 'error');
+                }
+            }
+        });
+
+        // Edit form submission
+        document.getElementById('edit-recurring-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            const updates = {
+                name: formData.get('name'),
+                amount: Math.round(parseFloat(formData.get('amount')) * 100),
+                category: formData.get('category') || null,
+                account_id: formData.get('account_id') || null,
+                frequency: formData.get('frequency'),
+                day_of_month: parseInt(formData.get('day_of_month')) || 1,
+                requires_verification: formData.get('requires_verification') === 'on',
+                is_active: formData.get('is_active') === 'on',
+            };
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Saving...';
+
+                await API.updateRecurring(recurring.id, updates);
+                overlay.remove();
+                this.showToast('Recurring updated!', 'success');
+                this.loadRecurring(document.getElementById('main-content'));
+            } catch (err) {
+                this.showToast('Error: ' + err.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Save Changes';
+            }
+        });
+    },
+
+    async showAddRecurringModal() {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'add-recurring-modal';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+
+        try {
+            const [categories, accounts] = await Promise.all([
+                API.getCategoryList(),
+                API.getAccounts()
+            ]);
+            modal.innerHTML = Screens.addRecurringModal(categories, accounts);
+        } catch {
+            modal.innerHTML = Screens.addRecurringModal([], []);
+        }
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Close handlers
+        document.getElementById('close-add-recurring').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        // Form submission
+        document.getElementById('add-recurring-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            const recurring = {
+                name: formData.get('name'),
+                type: formData.get('type'),
+                amount: Math.round(parseFloat(formData.get('amount')) * 100),
+                category: formData.get('category') || null,
+                account_id: formData.get('account_id') || null,
+                frequency: formData.get('frequency'),
+                day_of_month: parseInt(formData.get('day_of_month')) || 1,
+                start_date: formData.get('start_date'),
+                requires_verification: formData.get('requires_verification') === 'on',
+                is_autopay: formData.get('is_autopay') === 'on',
+            };
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Adding...';
+
+                await API.createRecurring(recurring);
+                overlay.remove();
+                this.showToast('Recurring added!', 'success');
+                this.loadRecurring(document.getElementById('main-content'));
+            } catch (err) {
+                this.showToast('Error: ' + err.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Add Recurring';
+            }
+        });
+    },
+
+    // -------------------------------------------------------------------------
+    // More Menu
+    // -------------------------------------------------------------------------
+
+    async loadMore(container) {
+        container.innerHTML = Screens.more();
+        this.bindMoreHandlers();
+    },
+
+    bindMoreHandlers() {
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const screen = item.dataset.screen;
+                this.showScreen(screen);
+            });
+        });
+    },
+
+    // -------------------------------------------------------------------------
+    // Loans
+    // -------------------------------------------------------------------------
+
+    async loadLoans(container) {
+        container.innerHTML = '<div class="loading">Loading...</div>';
+
+        try {
+            const loans = await API.getLoans();
+            this.currentLoans = loans;
+            container.innerHTML = Screens.loans(loans);
+            this.bindLoansHandlers(loans);
+        } catch (err) {
+            container.innerHTML = `<div class="card"><p class="text-center text-muted">Failed to load loans</p></div>`;
+        }
+    },
+
+    bindLoansHandlers(loans) {
+        const addBtn = document.getElementById('add-loan-btn');
+        if (addBtn) {
+            addBtn.addEventListener('click', () => this.showAddLoanModal());
+        }
+
+        // Click on loan item to view/edit
+        document.querySelectorAll('.loan-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const loanId = item.dataset.loanId;
+                if (loanId) {
+                    this.showViewLoanModal(loanId);
+                }
+            });
+        });
+    },
+
+    async showViewLoanModal(loanId) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'view-loan-modal';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal modal-large';
+        modal.innerHTML = '<div class="loading">Loading...</div>';
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        try {
+            const [loan, accounts] = await Promise.all([
+                API.getLoan(loanId),
+                API.getAccounts()
+            ]);
+
+            modal.innerHTML = Screens.viewLoanModal(loan, accounts);
+            this.bindViewLoanHandlers(overlay, loan);
+        } catch (err) {
+            modal.innerHTML = `<p class="text-center text-muted">Failed to load details</p>`;
+        }
+
+        // Close on overlay click
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+    },
+
+    bindViewLoanHandlers(overlay, loan) {
+        // Close button
+        document.getElementById('close-view-loan').addEventListener('click', () => overlay.remove());
+
+        // Close loan button
+        document.getElementById('close-loan-btn').addEventListener('click', async () => {
+            if (confirm(`Close "${loan.name}"? This will mark the loan as inactive.`)) {
+                try {
+                    await API.closeLoan(loan.id);
+                    overlay.remove();
+                    this.showToast('Loan closed!', 'success');
+                    this.loadLoans(document.getElementById('main-content'));
+                } catch (err) {
+                    this.showToast('Error: ' + err.message, 'error');
+                }
+            }
+        });
+
+        // Edit form submission
+        document.getElementById('edit-loan-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            const updates = {
+                name: formData.get('name'),
+                emi_amount: Math.round(parseFloat(formData.get('emi_amount')) * 100),
+                emi_day: parseInt(formData.get('emi_day')) || loan.emi_day,
+                lender: formData.get('lender') || null,
+                payment_account_id: formData.get('payment_account_id') || null,
+            };
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Saving...';
+
+                await API.updateLoan(loan.id, updates);
+                overlay.remove();
+                this.showToast('Loan updated!', 'success');
+                this.loadLoans(document.getElementById('main-content'));
+            } catch (err) {
+                this.showToast('Error: ' + err.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Save Changes';
+            }
+        });
+    },
+
+    async showAddLoanModal() {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'add-loan-modal';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+
+        try {
+            const accounts = await API.getAccounts();
+            modal.innerHTML = Screens.addLoanModal(accounts);
+        } catch {
+            modal.innerHTML = Screens.addLoanModal([]);
+        }
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Close handlers
+        document.getElementById('close-add-loan').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        // Form submission
+        document.getElementById('add-loan-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            const loan = {
+                name: formData.get('name'),
+                type: formData.get('type'),
+                principal: Math.round(parseFloat(formData.get('principal')) * 100),
+                interest_rate: parseFloat(formData.get('interest_rate')),
+                tenure_months: parseInt(formData.get('tenure_months')),
+                emi_amount: Math.round(parseFloat(formData.get('emi_amount')) * 100),
+                emi_day: parseInt(formData.get('emi_day')) || 5,
+                start_date: formData.get('start_date'),
+                lender: formData.get('lender') || null,
+                payment_account_id: formData.get('payment_account_id') || null,
+            };
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Adding...';
+
+                await API.createLoan(loan);
+                overlay.remove();
+                this.showToast('Loan added!', 'success');
+                this.loadLoans(document.getElementById('main-content'));
+            } catch (err) {
+                this.showToast('Error: ' + err.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Add Loan';
+            }
+        });
+    },
+
+    // -------------------------------------------------------------------------
+    // Credit Cards
+    // -------------------------------------------------------------------------
+
+    async loadCreditCards(container) {
+        container.innerHTML = '<div class="loading">Loading...</div>';
+
+        try {
+            const cards = await API.getCreditCards();
+            // Get details for each card
+            const cardsWithDetails = await Promise.all(
+                cards.map(async card => {
+                    try {
+                        const details = await API.getCreditCardDetails(card.id);
+                        return { ...card, ...details };
+                    } catch {
+                        return card;
+                    }
+                })
+            );
+            container.innerHTML = Screens.creditCards(cardsWithDetails);
+            this.bindCreditCardsHandlers(cardsWithDetails);
+        } catch (err) {
+            container.innerHTML = `<div class="card"><p class="text-center text-muted">Failed to load credit cards</p></div>`;
+        }
+    },
+
+    bindCreditCardsHandlers(cards) {
+        document.querySelectorAll('.pay-card-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = btn.closest('.credit-card-item');
+                const cardId = item.dataset.cardId;
+                const card = cards.find(c => c.id === cardId);
+                if (card) {
+                    this.showPayCardModal(card);
+                }
+            });
+        });
+    },
+
+    async showPayCardModal(card) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'pay-card-modal';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal modal-small';
+
+        try {
+            const accounts = await API.getAccounts();
+            modal.innerHTML = Screens.payCardModal(card, accounts);
+        } catch {
+            modal.innerHTML = Screens.payCardModal(card, []);
+        }
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Close handlers
+        document.getElementById('close-pay-card').addEventListener('click', () => overlay.remove());
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        // Form submission
+        document.getElementById('pay-card-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            const amount = Math.round(parseFloat(formData.get('amount')) * 100);
+            const fromAccountId = formData.get('from_account_id');
+
+            if (!fromAccountId) {
+                this.showToast('Please select an account', 'error');
+                return;
+            }
+
+            try {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Processing...';
+
+                // Create a transfer event (pay credit card)
+                await API.createTransfer(fromAccountId, card.id, amount, `Credit card payment - ${card.name}`);
+
+                overlay.remove();
+                this.showToast('Payment successful!', 'success');
+                this.loadCreditCards(document.getElementById('main-content'));
+            } catch (err) {
+                this.showToast('Error: ' + err.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Pay Now';
             }
         });
     },

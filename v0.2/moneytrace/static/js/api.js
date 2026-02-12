@@ -64,6 +64,14 @@ const API = {
         return this.request(endpoint);
     },
 
+    async getBudgetBreakdown(month = null, year = null) {
+        let endpoint = '/budget/breakdown';
+        if (month && year) {
+            endpoint += `?month=${month}&year=${year}`;
+        }
+        return this.request(endpoint);
+    },
+
     async getCategoryList() {
         return this.request('/categories/list');
     },
@@ -87,6 +95,16 @@ const API = {
         return this.request(endpoint);
     },
 
+    async deleteEvent(eventId) {
+        return this.request(`/events/${eventId}`, {
+            method: 'DELETE'
+        });
+    },
+
+    async getTimeline(limit = 100, detailed = false) {
+        return this.request(`/events/timeline?limit=${limit}&detailed=${detailed}`);
+    },
+
     // -------------------------------------------------------------------------
     // Friends
     // -------------------------------------------------------------------------
@@ -104,6 +122,19 @@ const API = {
 
     async getFriendDetails(friendId) {
         return this.request(`/friends/${friendId}`);
+    },
+
+    async updateFriend(friendId, data) {
+        return this.request(`/friends/${friendId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+    },
+
+    async deleteFriend(friendId) {
+        return this.request(`/friends/${friendId}`, {
+            method: 'DELETE'
+        });
     },
 
     // -------------------------------------------------------------------------
@@ -160,6 +191,203 @@ const API = {
     async deleteCategory(categoryId, reassignTo = 'Other') {
         return this.request(`/categories/${categoryId}?reassign_to=${encodeURIComponent(reassignTo)}`, {
             method: 'DELETE'
+        });
+    },
+
+    // -------------------------------------------------------------------------
+    // Accounts
+    // -------------------------------------------------------------------------
+
+    async getAccounts() {
+        return this.request('/accounts');
+    },
+
+    async createAccount(account) {
+        return this.request('/accounts', {
+            method: 'POST',
+            body: JSON.stringify(account)
+        });
+    },
+
+    async getAccount(accountId) {
+        return this.request(`/accounts/${accountId}`);
+    },
+
+    async updateAccount(accountId, updates) {
+        return this.request(`/accounts/${accountId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+    },
+
+    async deleteAccount(accountId) {
+        return this.request(`/accounts/${accountId}`, {
+            method: 'DELETE'
+        });
+    },
+
+    async getAccountEvents(accountId, limit = 50) {
+        return this.request(`/accounts/${accountId}/events?limit=${limit}`);
+    },
+
+    async createTransfer(fromAccountId, toAccountId, amount, description = null) {
+        return this.request('/accounts/transfer', {
+            method: 'POST',
+            body: JSON.stringify({
+                from_account_id: fromAccountId,
+                to_account_id: toAccountId,
+                amount,
+                description
+            })
+        });
+    },
+
+    // -------------------------------------------------------------------------
+    // Recurring Transactions
+    // -------------------------------------------------------------------------
+
+    async getRecurring() {
+        return this.request('/recurring');
+    },
+
+    async getRecurringById(recurringId) {
+        return this.request(`/recurring/${recurringId}`);
+    },
+
+    async createRecurring(recurring) {
+        return this.request('/recurring', {
+            method: 'POST',
+            body: JSON.stringify(recurring)
+        });
+    },
+
+    async updateRecurring(recurringId, updates) {
+        return this.request(`/recurring/${recurringId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+    },
+
+    async deleteRecurring(recurringId) {
+        return this.request(`/recurring/${recurringId}`, {
+            method: 'DELETE'
+        });
+    },
+
+    async getPendingTransactions() {
+        return this.request('/recurring/pending');
+    },
+
+    async confirmPending(pendingId) {
+        return this.request(`/recurring/pending/${pendingId}/confirm`, {
+            method: 'POST'
+        });
+    },
+
+    async skipPending(pendingId) {
+        return this.request(`/recurring/pending/${pendingId}/skip`, {
+            method: 'POST'
+        });
+    },
+
+    async getUpcomingBills(days = 30) {
+        return this.request(`/recurring/upcoming?days=${days}`);
+    },
+
+    async payRecurringEarly(recurringId, accountId = null) {
+        let endpoint = `/recurring/${recurringId}/pay-early`;
+        if (accountId) {
+            endpoint += `?account_id=${accountId}`;
+        }
+        return this.request(endpoint, {
+            method: 'POST'
+        });
+    },
+
+    async checkDueRecurring() {
+        return this.request('/recurring/due');
+    },
+
+    // -------------------------------------------------------------------------
+    // Loans
+    // -------------------------------------------------------------------------
+
+    async getLoans() {
+        return this.request('/loans');
+    },
+
+    async createLoan(loan) {
+        return this.request('/loans', {
+            method: 'POST',
+            body: JSON.stringify(loan)
+        });
+    },
+
+    async getLoan(loanId) {
+        return this.request(`/loans/${loanId}`);
+    },
+
+    async updateLoan(loanId, updates) {
+        return this.request(`/loans/${loanId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+    },
+
+    async closeLoan(loanId) {
+        return this.request(`/loans/${loanId}`, {
+            method: 'DELETE'
+        });
+    },
+
+    async payEmi(loanId, amount = null, accountId = null) {
+        let url = `/loans/${loanId}/pay`;
+        const params = [];
+        if (amount) params.push(`amount=${amount}`);
+        if (accountId) params.push(`account_id=${accountId}`);
+        if (params.length) url += '?' + params.join('&');
+
+        return this.request(url, { method: 'POST' });
+    },
+
+    async getLoanSchedule(loanId) {
+        return this.request(`/loans/${loanId}/schedule`);
+    },
+
+    // -------------------------------------------------------------------------
+    // Credit Cards
+    // -------------------------------------------------------------------------
+
+    async getCreditCards() {
+        return this.request('/credit-cards');
+    },
+
+    async getCreditCardDetails(cardId) {
+        return this.request(`/credit-cards/${cardId}`);
+    },
+
+    async getCardStatements(cardId, unpaidOnly = false) {
+        return this.request(`/credit-cards/${cardId}/statements?unpaid_only=${unpaidOnly}`);
+    },
+
+    async createCardStatement(cardId, statement) {
+        return this.request(`/credit-cards/${cardId}/statements`, {
+            method: 'POST',
+            body: JSON.stringify({
+                ...statement,
+                card_account_id: cardId
+            })
+        });
+    },
+
+    async payCreditCard(statementId, amount, fromAccountId) {
+        return this.request('/credit-cards/pay', {
+            method: 'POST',
+            body: JSON.stringify({
+                statement_id: statementId,
+                amount,
+                from_account_id: fromAccountId
+            })
         });
     }
 };

@@ -1,17 +1,38 @@
-# MoneyTrace v0.3.0
+# MoneyTrace v0.4.0
 
 **Personal finance tracking for Android** — conservative budgeting, event-driven ledger.
 
 ## Features
 
+### Core
 - 📱 **Mobile-first PWA** — Installable on Android home screen
 - 🐍 **Python backend** — All logic in Python (FastAPI + SQLite)
 - 📴 **Fully offline** — Works without internet after setup
 - 💾 **Data export** — Backup your data as JSON
+
+### Budget Management
 - 🏷️ **Category Management** — Add, edit, delete custom categories
 - 🔄 **Budget Reset** — Configurable monthly reset day (1-28)
 - 💰 **Carry Over** — Unused budget carries to next month (optional)
 - 🗑️ **Clear Data** — Reset all transactions with confirmation
+
+### Multiple Accounts
+- 🏦 **Account Tracking** — Track multiple bank accounts, wallets
+- 💳 **Credit Cards** — Track credit card spending and statements
+- 🔄 **Transfers** — Move money between accounts
+- 📊 **Per-account history** — View transactions per account
+
+### Recurring Transactions
+- 🔁 **Subscriptions** — Set up recurring expenses
+- 💵 **Salary/Income** — Track recurring income
+- ✅ **Verification Flow** — Confirm or skip pending transactions
+- 🤖 **Auto-apply** — Automatically record recurring transactions
+
+### EMI & Loan Tracking
+- 📋 **Loan Management** — Track multiple loans
+- 📅 **EMI Schedule** — View amortization schedule
+- 🔔 **Payment Tracking** — Track payments made vs remaining
+- 💳 **Credit Card EMI** — Track BNPL and card EMIs
 
 ## Quick Start
 
