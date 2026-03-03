@@ -1,612 +1,248 @@
-# MoneyTrace Mobile App Conversion Plan
+# MoneyTrace Mobile App
 
-> **Version**: Planning Document  
-> **Created**: February 13, 2026  
-> **Status**: Planning Phase
+> **Version**: v0.2.0 (Flutter)
+> **Created**: February 13, 2026
+> **Last Updated**: March 3, 2026
+> **Status**: Built and deployed to device
 
 ---
 
 ## Overview
 
-This document outlines the options and steps to convert MoneyTrace from a Python/FastAPI PWA into a standalone mobile app. The app will be **local-only** (no cloud sync) - all data stays on the user's device.
+MoneyTrace mobile is a native Android app built with **Flutter + Dart**, using **Drift** (SQLite) for local storage and **Riverpod** for state management. It is a full rewrite of the Python/FastAPI PWA into a standalone mobile app. All data stays on-device — no cloud sync.
 
 ---
 
-## Current Architecture
+## Decision History
 
-| Layer | Technology | Files |
-|-------|------------|-------|
-| Backend | Python/FastAPI | `server.py`, `engine.py`, `db.py` |
-| Database | SQLite | `~/.moneytrace/moneytrace.db` |
-| Frontend | Vanilla JS + CSS | `app.js`, `screens.js`, `api.js`, `app.css` |
-| PWA | Service Worker | `sw.js`, `manifest.json` |
+### Framework Choice
+
+Initially evaluated 4 options:
+
+| Option | Verdict |
+|--------|---------|
+| React Native + SQLite | Good ecosystem, requires JS rewrite |
+| Capacitor (wrap PWA) | Fastest but WebView limitations |
+| Kivy (keep Python) | Non-native feel, large APK |
+| BeeWare/Toga | Immature ecosystem |
+
+**Chose Flutter** — best native performance, strong typing with Dart, excellent SQLite support via Drift, single codebase for Android/iOS.
+
+### Theme Choice
+
+Adopted **Nothing OS design language** (March 2026) to match the target device (Nothing Phone 3a):
+
+| Element | Implementation |
+|---------|---------------|
+| Background | AMOLED true black (`#000000`) |
+| Cards | No elevation, 1px `white@8%` border |
+| Buttons | Pill-shaped (borderRadius: 24) |
+| Inputs | Outline border, no fill |
+| Typography | Space Grotesk (Google Fonts) |
+| Accent | Nothing red (`#D72638`) |
+| Status colors | Muted/desaturated for AMOLED |
 
 ---
 
-## Table of Contents
+## Tech Stack
 
-1. [Option A: React Native + SQLite](#option-a-react-native--sqlite-recommended)
-2. [Option B: Capacitor (Wrap Existing Web App)](#option-b-capacitor-wrap-existing-web-app)
-3. [Option C: Kivy (Keep Python)](#option-c-kivy-keep-python)
-4. [Option D: BeeWare/Toga](#option-d-beewaretoga-keep-python-native-ui)
-5. [Recommendation Matrix](#recommendation-matrix)
-6. [Recommended Approach](#recommended-approach)
-7. [Further Considerations](#further-considerations)
+| Layer | Technology |
+|-------|------------|
+| Framework | Flutter 3.27.4 (Dart 3.6.2) |
+| Database | Drift 2.x (SQLite via sqlite3_flutter_libs) |
+| State Management | Riverpod 2.x |
+| Typography | Google Fonts (Space Grotesk) |
+| File I/O | path_provider, file_picker |
+| Sharing | share_plus |
+| IDs | uuid v4 |
 
 ---
 
-## Option A: React Native + SQLite (Recommended)
+## Project Structure
 
-**Best for**: Native feel, best performance, largest ecosystem
-
-### Tech Stack
-- **Framework**: React Native (or Expo for easier setup)
-- **Database**: `react-native-sqlite-storage` or `expo-sqlite`
-- **UI**: React Native Paper / NativeBase (Material Design)
-- **Navigation**: React Navigation
-- **Language**: TypeScript
-
-### Pros
-- ✅ Best native performance and feel
-- ✅ Huge ecosystem and community support
-- ✅ Hot reload for fast development
-- ✅ Single codebase for iOS + Android
-- ✅ Easy to add native features (notifications, file access)
-
-### Cons
-- ❌ Requires rewriting Python logic to TypeScript
-- ❌ Steeper learning curve if new to React
-- ❌ Larger initial setup time
-
-### Implementation Steps
-
-#### 1. Initialize React Native Project
-```bash
-# Using Expo (easier)
-npx create-expo-app MoneyTrace --template blank-typescript
-
-# Or using React Native CLI (more control)
-npx react-native init MoneyTrace --template react-native-template-typescript
 ```
-
-#### 2. Install Dependencies
-```bash
-# For Expo
-npx expo install expo-sqlite expo-file-system
-
-# For React Native CLI
-npm install react-native-sqlite-storage
-npm install @react-navigation/native @react-navigation/bottom-tabs
-npm install react-native-paper
-```
-
-#### 3. Port Database Layer (Python → TypeScript)
-Convert `moneytrace/storage/db.py` → `src/storage/database.ts`
-
-```typescript
-// src/storage/database.ts
-import * as SQLite from 'expo-sqlite';
-
-const db = SQLite.openDatabase('moneytrace.db');
-
-export const initDatabase = () => {
-  db.transaction(tx => {
-    tx.executeSql(`
-      CREATE TABLE IF NOT EXISTS events (
-        id TEXT PRIMARY KEY,
-        type TEXT NOT NULL,
-        amount INTEGER NOT NULL,
-        category TEXT,
-        description TEXT,
-        friend_id TEXT,
-        account_id TEXT,
-        event_date TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      )
-    `);
-    // ... more tables
-  });
-};
-
-export const createEvent = (event: EventCreate): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    db.transaction(tx => {
-      tx.executeSql(
-        `INSERT INTO events (id, type, amount, ...) VALUES (?, ?, ?, ...)`,
-        [uuid(), event.type, event.amount, ...],
-        (_, result) => resolve(result.insertId),
-        (_, error) => reject(error)
-      );
-    });
-  });
-};
-```
-
-#### 4. Port Engine Logic (Python → TypeScript)
-Convert `moneytrace/core/engine.py` → `src/core/engine.ts`
-
-```typescript
-// src/core/engine.ts
-import { EventType, Event } from './types';
-
-export const computeAvailableBudget = (
-  baseBudget: number,
-  events: Event[]
-): number => {
-  let budget = baseBudget;
-
-  for (const e of events) {
-    switch (e.type) {
-      case EventType.EXPENSE:
-        budget -= e.amount;
-        break;
-      case EventType.LIABILITY:
-        budget -= e.amount;
-        break;
-      case EventType.SETTLEMENT_RECEIVED:
-        budget += e.amount;
-        break;
-      case EventType.BUDGET_ADJUSTMENT:
-        budget += e.amount;
-        break;
-      case EventType.EMI_PAYMENT:
-        budget -= e.amount;
-        break;
-    }
-  }
-
-  return budget;
-};
-```
-
-#### 5. Port Event Types (Python → TypeScript)
-Convert `moneytrace/core/events.py` → `src/core/types.ts`
-
-```typescript
-// src/core/types.ts
-export enum EventType {
-  EXPENSE = 'expense',
-  LIABILITY = 'liability',
-  RECEIVABLE = 'receivable',
-  SETTLEMENT_PAID = 'settlement_paid',
-  SETTLEMENT_RECEIVED = 'settlement_received',
-  BUDGET_ADJUSTMENT = 'budget_adjustment',
-  TRANSFER = 'transfer',
-  INCOME = 'income',
-  CREDIT_CARD_PAYMENT = 'credit_card_payment',
-  EMI_PAYMENT = 'emi_payment',
-}
-
-export interface Event {
-  id: string;
-  type: EventType;
-  amount: number;
-  category?: string;
-  description?: string;
-  friendId?: string;
-  accountId?: string;
-  eventDate: string;
-  createdAt: string;
-}
-```
-
-#### 6. Build React Native Screens
-Port from `screens.js` to React Native components:
-
-| Current (JS) | React Native |
-|--------------|--------------|
-| `Screens.dashboard()` | `src/screens/DashboardScreen.tsx` |
-| `Screens.addEvent()` | `src/screens/AddEventScreen.tsx` |
-| `Screens.accounts()` | `src/screens/AccountsScreen.tsx` |
-| `Screens.recurring()` | `src/screens/RecurringScreen.tsx` |
-| `Screens.settings()` | `src/screens/SettingsScreen.tsx` |
-| `Screens.friends()` | `src/screens/FriendsScreen.tsx` |
-| `Screens.history()` | `src/screens/HistoryScreen.tsx` |
-
-#### 7. Build for Android/iOS
-```bash
-# Expo
-npx expo build:android
-npx expo build:ios  # Requires Mac
-
-# React Native CLI
-cd android && ./gradlew assembleRelease
+mobile/
+├── lib/
+│   ├── main.dart              # App entry point
+│   ├── core/                  # Pure business logic (ported from Python)
+│   │   ├── engine.dart        # Budget/balance calculations
+│   │   ├── budget.dart        # Budget reset & carry-over
+│   │   └── events.dart        # Enums: EventType, AccountType, etc.
+│   ├── data/                  # Persistence layer
+│   │   ├── database.dart      # Drift database + tables
+│   │   ├── database.g.dart    # Generated Drift code
+│   │   └── daos/              # Data access objects
+│   ├── providers/             # Riverpod state providers
+│   ├── screens/               # UI screens
+│   │   ├── dashboard_screen.dart
+│   │   ├── accounts_screen.dart
+│   │   ├── add_event_screen.dart
+│   │   ├── recurring_screen.dart
+│   │   ├── loans_screen.dart
+│   │   ├── credit_cards_screen.dart
+│   │   ├── friends_screen.dart
+│   │   ├── history_screen.dart
+│   │   └── settings_screen.dart
+│   ├── theme/                 # Centralized theming
+│   │   ├── colors.dart        # Nothing OS color palette
+│   │   └── app_theme.dart     # Full ThemeData config
+│   └── widgets/               # Shared UI components
+├── android/                   # Android project (v2 embedding)
+│   ├── app/build.gradle       # AGP 8.7.0, Java 17, NDK 27
+│   ├── settings.gradle        # Kotlin 2.0.21
+│   └── gradle/wrapper/        # Gradle 8.12
+├── web/                       # Web target (optional)
+├── pubspec.yaml               # Dependencies
+├── README.md
+└── INSTALLATION.md            # Setup guides (web, Android)
 ```
 
 ---
 
-## Option B: Capacitor (Wrap Existing Web App)
+## Build & Deploy
 
-**Best for**: Fastest conversion, minimal rewrite
+### Prerequisites
 
-### Tech Stack
-- **Wrapper**: Capacitor (by Ionic team)
-- **Database**: `@capacitor-community/sqlite` or SQL.js
-- **Existing**: Keep HTML/CSS/JS mostly as-is
+- Flutter SDK 3.27.4+
+- Android SDK with platform-tools, platforms;android-34, build-tools;34.0.0
+- Java 17 or 21 (Java 25 is NOT compatible with Gradle)
+- NDK 27.0.12077973 (required by plugins)
 
-### Pros
-- ✅ Fastest path to working APK
-- ✅ Reuse existing HTML/CSS/JS
-- ✅ Familiar web technologies
-- ✅ Good plugin ecosystem
+### Build Commands
 
-### Cons
-- ❌ Not as native-feeling as React Native
-- ❌ Still need to port Python to JavaScript
-- ❌ WebView performance limitations
-
-### Implementation Steps
-
-#### 1. Remove Python Backend Dependency
-Port backend logic to client-side JavaScript:
-
-```
-moneytrace/storage/db.py    → static/js/db.js
-moneytrace/core/engine.py   → static/js/engine.js
-moneytrace/core/events.py   → static/js/types.js
-```
-
-#### 2. Update API Layer
-Change `api.js` from HTTP calls to direct function calls:
-
-```javascript
-// Before (HTTP)
-async getSummary() {
-  return this.request('/summary');
-}
-
-// After (Local)
-async getSummary() {
-  const db = await getDatabase();
-  const events = db.getEventsForEngine();
-  const baseBudget = db.getBaseBudget();
-  return {
-    budget_remaining: computeAvailableBudget(baseBudget, events),
-    // ...
-  };
-}
-```
-
-#### 3. Initialize Capacitor
 ```bash
-cd v0.2/moneytrace/static
-npm init -y
-npm install @capacitor/core @capacitor/cli @capacitor/android
-npm install @capacitor-community/sqlite
+cd mobile
 
-npx cap init MoneyTrace com.moneytrace.app --web-dir .
-npx cap add android
+# Install dependencies
+flutter pub get
+
+# Generate Drift database code (after schema changes)
+dart run build_runner build --delete-conflicting-outputs
+
+# Build release APK
+flutter build apk --release
+# Output: build/app/outputs/flutter-apk/app-release.apk (25.5MB)
+
+# Install to connected device
+flutter install
+
+# Run in debug mode with hot reload
+flutter run
 ```
 
-#### 4. Configure Capacitor
-```json
-// capacitor.config.json
-{
-  "appId": "com.moneytrace.app",
-  "appName": "MoneyTrace",
-  "webDir": ".",
-  "bundledWebRuntime": false,
-  "plugins": {
-    "CapacitorSQLite": {
-      "iosDatabaseLocation": "Library/CapacitorDatabase"
-    }
-  }
-}
-```
+### Java/Gradle Compatibility
 
-#### 5. Build APK
+| Java Version | Gradle | AGP | Status |
+|-------------|--------|-----|--------|
+| 25 | Any | Any | NOT supported |
+| 21 | 8.12 | 8.7.0 | Working |
+| 17 | 8.12 | 8.7.0 | Working |
+
+If using Java 25 on Fedora, install Java 21 and configure Flutter:
 ```bash
-npx cap sync
-npx cap open android  # Opens Android Studio
-# Build → Generate Signed APK
+sudo dnf install java-21-openjdk-devel
+flutter config --jdk-dir=/usr/lib/jvm/java-21-openjdk
 ```
+
+### Distribution
+
+**Direct APK sharing** (simplest):
+- Share `build/app/outputs/flutter-apk/app-release.apk` via WhatsApp/Telegram/Drive
+- Recipients enable "Install from unknown sources"
+
+**GitHub Releases**:
+```bash
+gh release create v0.2.0 mobile/build/app/outputs/flutter-apk/app-release.apk \
+  --title "MoneyTrace v0.2.0" --notes "Nothing OS themed release"
+```
+
+**Play Store** (requires additional setup):
+1. Google Play Developer account ($25 one-time)
+2. Generate release keystore (debug keys won't be accepted)
+3. Build AAB: `flutter build appbundle --release`
+4. Create store listing with screenshots, privacy policy
+5. Submit for review (1-7 days for first app)
 
 ---
 
-## Option C: Kivy (Keep Python)
+## Android Project Configuration
 
-**Best for**: Reuse Python code directly, minimal porting
+Key settings in `android/app/build.gradle`:
+- `namespace`: `com.example.moneytrace`
+- `compileSdk`: Flutter default
+- `ndkVersion`: `27.0.12077973`
+- `sourceCompatibility`: Java 17
+- `kotlinOptions.jvmTarget`: `17`
+- Signed with debug keys (release signing needed for Play Store)
 
-### Tech Stack
-- **Framework**: Kivy + KivyMD (Material Design)
-- **Packaging**: Buildozer (for Android APK)
-- **Database**: Same SQLite code (unchanged)
-
-### Pros
-- ✅ Keep all Python backend code unchanged
-- ✅ Single Python codebase
-- ✅ Good for Python developers
-
-### Cons
-- ❌ UI doesn't feel native
-- ❌ Larger APK size (~30MB+)
-- ❌ Slower than native
-- ❌ Buildozer can be finicky
-
-### Implementation Steps
-
-#### 1. Install Kivy Dependencies
-```bash
-pip install kivy kivymd buildozer cython
-```
-
-#### 2. Create Kivy UI (Replace HTML/JS)
-```python
-# main.py
-from kivy.app import App
-from kivymd.app import MDApp
-from kivymd.uix.screen import MDScreen
-from kivymd.uix.card import MDCard
-from kivymd.uix.label import MDLabel
-
-from moneytrace.storage.db import Database
-from moneytrace.core.engine import compute_available_budget
-
-class DashboardScreen(MDScreen):
-    def on_enter(self):
-        db = Database()
-        events = db.get_events_for_engine()
-        budget = db.get_base_budget()
-        remaining = compute_available_budget(budget, events)
-        
-        self.ids.budget_label.text = f"₹{remaining / 100:,.0f}"
-
-class MoneyTraceApp(MDApp):
-    def build(self):
-        self.theme_cls.theme_style = "Dark"
-        self.theme_cls.primary_palette = "Red"
-        return DashboardScreen()
-
-if __name__ == '__main__':
-    MoneyTraceApp().run()
-```
-
-#### 3. Create Kivy Layout Files
-```kv
-# dashboard.kv
-<DashboardScreen>:
-    MDBoxLayout:
-        orientation: 'vertical'
-        padding: dp(16)
-        
-        MDCard:
-            size_hint_y: None
-            height: dp(150)
-            MDLabel:
-                id: budget_label
-                text: "Loading..."
-                halign: "center"
-                font_style: "H3"
-```
-
-#### 4. Create buildozer.spec
-```bash
-buildozer init
-```
-
-Edit `buildozer.spec`:
-```ini
-[app]
-title = MoneyTrace
-package.name = moneytrace
-package.domain = org.moneytrace
-source.include_exts = py,kv,json
-version = 0.4.2
-
-requirements = python3,kivy,kivymd,sqlite3,pydantic
-
-android.permissions = WRITE_EXTERNAL_STORAGE,READ_EXTERNAL_STORAGE
-android.api = 33
-android.minapi = 21
-android.arch = arm64-v8a
-```
-
-#### 5. Build Android APK
-```bash
-buildozer android debug
-# Output: bin/moneytrace-0.4.2-debug.apk
-```
+Key settings in `android/settings.gradle`:
+- AGP: `8.7.0`
+- Kotlin: `2.0.21`
+- Gradle: `8.12` (via `gradle-wrapper.properties`)
 
 ---
 
-## Option D: BeeWare/Toga (Keep Python, Native UI)
+## Theme Architecture
 
-**Best for**: Native UI widgets with Python, cleaner than Kivy
+All theming is centralized in 2 files:
 
-### Tech Stack
-- **Framework**: BeeWare (Toga for UI, Briefcase for packaging)
-- **Database**: Same SQLite code (unchanged)
+1. **`lib/theme/colors.dart`** — `AppColors` class with static const fields
+2. **`lib/theme/app_theme.dart`** — `AppTheme` class building `ThemeData`
 
-### Pros
-- ✅ Native UI widgets (not custom-drawn like Kivy)
-- ✅ Keep Python codebase
-- ✅ Single codebase for mobile + desktop
+All screen files reference `AppColors.fieldName`. Field names are stable — changing theme only requires editing these 2 files.
 
-### Cons
-- ❌ Smaller ecosystem than React Native
-- ❌ Less mature than other options
-- ❌ Limited UI component library
+### Nothing OS Color Palette
 
-### Implementation Steps
-
-#### 1. Install BeeWare
-```bash
-pip install briefcase toga
-```
-
-#### 2. Initialize Project
-```bash
-briefcase new
-# Follow prompts: MoneyTrace, com.moneytrace, etc.
-```
-
-#### 3. Create Toga UI
-```python
-# src/moneytrace/app.py
-import toga
-from toga.style import Pack
-from toga.style.pack import COLUMN, CENTER
-
-from .storage.db import Database
-from .core.engine import compute_available_budget
-
-class MoneyTrace(toga.App):
-    def startup(self):
-        self.db = Database()
-        
-        self.main_window = toga.MainWindow(title=self.formal_name)
-        
-        # Budget card
-        budget = self.get_budget_remaining()
-        budget_label = toga.Label(
-            f"₹{budget / 100:,.0f}",
-            style=Pack(font_size=36, text_align=CENTER)
-        )
-        
-        main_box = toga.Box(
-            children=[budget_label],
-            style=Pack(direction=COLUMN, padding=20)
-        )
-        
-        self.main_window.content = main_box
-        self.main_window.show()
-    
-    def get_budget_remaining(self):
-        events = self.db.get_events_for_engine()
-        base = self.db.get_base_budget()
-        return compute_available_budget(base, events)
-
-def main():
-    return MoneyTrace()
-```
-
-#### 4. Build for Android
-```bash
-briefcase create android
-briefcase build android
-briefcase run android  # Or: briefcase package android
-```
+| Field | Hex | Usage |
+|-------|-----|-------|
+| `background` | `#000000` | Scaffold, AMOLED black |
+| `surface` | `#0D0D0D` | Cards, sheets, dialogs |
+| `surfaceLight` | `#1A1A1A` | Chips, avatars |
+| `card` | `#0D0D0D` | Card backgrounds |
+| `accent` | `#D72638` | Primary action color |
+| `accentLight` | `#E8485A` | Hover/lighter variant |
+| `primary` | `#1A1A1A` | Neutral dark |
+| `primaryLight` | `#2A2A2A` | Secondary buttons |
+| `textPrimary` | `#EDEDED` | Main text |
+| `textSecondary` | `#8C8C8C` | Subtitles |
+| `textMuted` | `#555555` | Hints, placeholders |
+| `success` | `#4CAF7D` | Muted sage green |
+| `danger` | `#D72638` | Same as accent |
+| `warning` | `#D4A843` | Muted amber |
+| `info` | `#5B9BD5` | Soft steel blue |
 
 ---
 
-## Recommendation Matrix
+## Troubleshooting
 
-| Criteria | React Native | Capacitor | Kivy | BeeWare |
-|----------|:-----------:|:---------:|:----:|:-------:|
-| **Native Feel** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ |
-| **Development Speed** | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
-| **Code Reuse** | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| **App Size** | ~15MB | ~10MB | ~30MB | ~20MB |
-| **Ecosystem** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
-| **Future-proof** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ |
-| **Learning Curve** | Medium | Low | Medium | Low |
-| **Notifications** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐ | ⭐⭐ |
-
----
-
-## Recommended Approach
-
-### Phase 1: Quick MVP (1-2 days) - Capacitor
-
-Use **Capacitor** to wrap the existing web app:
-1. Port Python backend to JavaScript (db.js, engine.js)
-2. Update api.js to call local functions
-3. Package with Capacitor
-4. Get working APK for testing
-
-### Phase 2: Production App (1-2 weeks) - React Native
-
-Migrate to **React Native** for better UX:
-1. Set up React Native + TypeScript project
-2. Port database layer
-3. Port engine logic
-4. Build native UI components
-5. Add native features (notifications for bills)
-6. Polish and publish to Play Store
-
----
-
-## Further Considerations
-
-### 1. Data Migration
-How to handle existing Termux users' data?
-- Add JSON export/import feature
-- Read from standard path on Android
-
-### 2. Notifications
-For upcoming bill reminders:
-- React Native: `expo-notifications` (excellent support)
-- Capacitor: `@capacitor/local-notifications`
-- Kivy: Limited support
-
-### 3. Backup Strategy
-Since no cloud sync:
-- Local backup to Downloads folder
-- Share via system file picker
-- Scheduled auto-backup option
-
-### 4. Offline Support
-All options work offline since data is local. No additional work needed.
-
-### 5. Platform Support
-
-| Option | Android | iOS | Desktop |
-|--------|:-------:|:---:|:-------:|
-| React Native | ✅ | ✅ | ❌ |
-| Capacitor | ✅ | ✅ | ✅ (Electron) |
-| Kivy | ✅ | ✅ | ✅ |
-| BeeWare | ✅ | ✅ | ✅ |
-
----
-
-## Quick Start Commands
-
-### React Native (Expo)
+### "Unsupported class file major version 69"
+Java 25 is too new for Gradle. Use Java 17 or 21:
 ```bash
-npx create-expo-app MoneyTraceMobile --template blank-typescript
-cd MoneyTraceMobile
-npx expo install expo-sqlite
-npx expo start
+flutter config --jdk-dir=/usr/lib/jvm/java-21-openjdk
 ```
 
-### Capacitor
+### "Build failed due to use of deleted Android v1 embedding"
+Regenerate the Android project:
 ```bash
-cd v0.2/moneytrace/static
-npm init -y
-npm install @capacitor/core @capacitor/cli @capacitor/android
-npx cap init MoneyTrace com.moneytrace.app --web-dir .
-npx cap add android
-npx cap sync && npx cap open android
+cd mobile
+rm -rf android
+flutter create --platforms=android .
+```
+Then set NDK, AGP, Kotlin, and Java versions as documented above.
+
+### "NDK version mismatch"
+Set in `android/app/build.gradle`:
+```gradle
+ndkVersion = "27.0.12077973"
 ```
 
-### Kivy
-```bash
-pip install kivy kivymd buildozer
-buildozer init
-# Edit buildozer.spec
-buildozer android debug
-```
+### `flutter devices` doesn't show phone
+Install ADB: `sudo dnf install android-tools`
+Check: `adb devices` — approve USB debugging prompt on phone.
 
-### BeeWare
-```bash
-pip install briefcase toga
-briefcase new
-briefcase create android
-briefcase build android
-```
+### `flutter install` installs to Chrome instead of phone
+Flutter can't detect the phone. Ensure Android SDK is fully set up and `flutter doctor` shows the Android toolchain as green.
 
 ---
 
-## Next Steps
-
-1. **Choose approach** based on priorities (speed vs polish)
-2. **Set up development environment** for chosen framework
-3. **Port core logic** (db.py, engine.py)
-4. **Build MVP** with essential screens
-5. **Test on device**
-6. **Add polish** (notifications, animations)
-7. **Publish** to Play Store
-
----
-
-*Last Updated: February 13, 2026*
+*Last Updated: March 3, 2026*

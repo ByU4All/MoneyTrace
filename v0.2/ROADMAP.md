@@ -415,6 +415,19 @@ class AuditLog:
 
 ---
 
+## Recently Implemented: Native Mobile App (March 2026)
+
+### Flutter Android App
+- **Framework**: Flutter 3.27.4 + Dart, Drift (SQLite), Riverpod
+- **Theme**: Nothing OS design language — AMOLED black, red accent (`#D72638`), pill buttons, border cards, Space Grotesk font
+- **Build**: AGP 8.7.0, Kotlin 2.0.21, Gradle 8.12, Java 17/21, NDK 27.0.12077973
+- **Status**: Built (25.5MB APK) and deployed to Nothing Phone 3a (Android 16)
+- **Distribution**: Direct APK sharing; Play Store requires signing key + developer account
+
+See [MOBILE_APP.md](../MOBILE_APP.md) for full documentation.
+
+---
+
 ## Future Enhancements (v0.5.x+)
 
 ### Analytics & Reports

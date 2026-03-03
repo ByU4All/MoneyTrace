@@ -1,17 +1,24 @@
 """
 Loan and EMI management endpoints.
 
-GET    /loans           - List all loans
-POST   /loans           - Create loan
-GET    /loans/{id}      - Get loan details
-DELETE /loans/{id}      - Close loan
-POST   /loans/{id}/pay  - Record manual EMI payment
+GET    /loans                    - List all loans
+POST   /loans                    - Create loan
+GET    /loans/{id}               - Get loan details
+DELETE /loans/{id}               - Close loan
+POST   /loans/{id}/pay           - Record manual EMI payment
+GET    /loans/{id}/schedule      - Get amortization schedule
+GET    /loans/{id}/emi-schedule  - Get variable EMI schedule
+PUT    /loans/{id}/emi-schedule  - Set variable EMI schedule
+DELETE /loans/{id}/emi-schedule  - Revert to fixed EMI
 """
 
 from datetime import date
 from fastapi import APIRouter, HTTPException, Query
 
-from ..schemas import LoanCreate, LoanUpdate, LoanResponse, EventResponse
+from ..schemas import (
+    LoanCreate, LoanUpdate, LoanResponse, EventResponse,
+    EmiScheduleCreate, EmiScheduleResponse, EmiScheduleEntry,
+)
 from ..deps import get_db
 from ...core.events import EventType, LoanType
 
@@ -48,8 +55,16 @@ def create_loan(loan: LoanCreate):
             purpose=loan.purpose,
         )
 
+        # If variable EMI schedule provided, store it
+        if loan.emi_schedule:
+            schedule = [
+                {"month_number": e["month_number"], "emi_amount": e["emi_amount"]}
+                for e in loan.emi_schedule
+            ]
+            db.set_loan_emi_schedule(loan_id, schedule)
+
         loan_data = db.get_loan(loan_id)
-        return _format_loan(loan_data)
+        return _format_loan(db, loan_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -60,7 +75,7 @@ def list_loans(active_only: bool = True):
     try:
         db = get_db()
         loans = db.get_loans(active_only=active_only)
-        return [_format_loan(loan) for loan in loans]
+        return [_format_loan(db, loan) for loan in loans]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -73,7 +88,7 @@ def get_loan(loan_id: str):
         loan = db.get_loan(loan_id)
         if not loan:
             raise HTTPException(status_code=404, detail="Loan not found")
-        return _format_loan(loan)
+        return _format_loan(db, loan)
     except HTTPException:
         raise
     except Exception as e:
@@ -114,7 +129,7 @@ def update_loan(loan_id: str, updates: LoanUpdate):
             db.update_loan(loan_id, **update_data)
 
         loan = db.get_loan(loan_id)
-        return _format_loan(loan)
+        return _format_loan(db, loan)
     except HTTPException:
         raise
     except Exception as e:
@@ -170,7 +185,10 @@ def record_emi_payment(loan_id: str, amount: int = None, account_id: str = None)
         if not loan["is_active"]:
             raise HTTPException(status_code=400, detail="Loan is already closed")
 
-        payment_amount = amount or loan["emi_amount"]
+        # Use schedule amount for next month if variable schedule exists
+        next_month = loan["payments_made"] + 1
+        default_amount = db.get_emi_for_month(loan_id, next_month)
+        payment_amount = amount or default_amount
         payment_account = account_id or loan["payment_account_id"]
 
         # Create EMI payment event
@@ -218,24 +236,30 @@ def get_amortization_schedule(loan_id: str):
         if not loan:
             raise HTTPException(status_code=404, detail="Loan not found")
 
-        # Simple amortization calculation
+        # Amortization calculation with variable EMI support
         principal = loan["principal"]
         rate = loan["interest_rate"]
         tenure = loan["tenure_months"]
-        emi = loan["emi_amount"]
+        default_emi = loan["emi_amount"]
         payments_made = loan["payments_made"]
+
+        # Build EMI lookup from schedule if one exists
+        custom_schedule = db.get_loan_emi_schedule(loan_id)
+        emi_lookup = {e["month_number"]: e["emi_amount"] for e in custom_schedule}
 
         monthly_rate = rate / 12 / 100
         schedule = []
         balance = principal
 
         for i in range(tenure):
+            month_num = i + 1
+            emi = emi_lookup.get(month_num, default_emi)
             interest = int(balance * monthly_rate)
             principal_part = emi - interest
             balance = max(0, balance - principal_part)
 
             schedule.append({
-                "month": i + 1,
+                "month": month_num,
                 "emi": emi,
                 "principal": principal_part,
                 "interest": interest,
@@ -249,6 +273,7 @@ def get_amortization_schedule(loan_id: str):
             "total_emi": tenure,
             "paid": payments_made,
             "remaining": tenure - payments_made,
+            "has_custom_schedule": len(custom_schedule) > 0,
             "schedule": schedule,
         }
     except HTTPException:
@@ -257,11 +282,94 @@ def get_amortization_schedule(loan_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def _format_loan(loan: dict) -> LoanResponse:
-    """Format loan for response."""
+@router.get("/{loan_id}/emi-schedule", response_model=EmiScheduleResponse)
+def get_emi_schedule(loan_id: str):
+    """Get the variable EMI schedule for a loan."""
+    try:
+        db = get_db()
+        loan = db.get_loan(loan_id)
+        if not loan:
+            raise HTTPException(status_code=404, detail="Loan not found")
+
+        schedule = db.get_loan_emi_schedule(loan_id)
+        entries = [
+            EmiScheduleEntry(month_number=e["month_number"], emi_amount=e["emi_amount"])
+            for e in schedule
+        ]
+        return EmiScheduleResponse(
+            loan_id=loan_id,
+            has_custom_schedule=len(entries) > 0,
+            schedule=entries,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.put("/{loan_id}/emi-schedule", response_model=EmiScheduleResponse)
+def set_emi_schedule(loan_id: str, data: EmiScheduleCreate):
+    """Set or replace the variable EMI schedule for a loan."""
+    try:
+        db = get_db()
+        loan = db.get_loan(loan_id)
+        if not loan:
+            raise HTTPException(status_code=404, detail="Loan not found")
+
+        schedule = [
+            {"month_number": e.month_number, "emi_amount": e.emi_amount}
+            for e in data.schedule
+        ]
+        db.set_loan_emi_schedule(loan_id, schedule)
+
+        return EmiScheduleResponse(
+            loan_id=loan_id,
+            has_custom_schedule=True,
+            schedule=data.schedule,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/{loan_id}/emi-schedule")
+def delete_emi_schedule(loan_id: str):
+    """Delete the variable EMI schedule (revert to fixed EMI)."""
+    try:
+        db = get_db()
+        loan = db.get_loan(loan_id)
+        if not loan:
+            raise HTTPException(status_code=404, detail="Loan not found")
+
+        db.delete_loan_emi_schedule(loan_id)
+        return {"status": "ok", "message": "Reverted to fixed EMI"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _format_loan(db, loan: dict) -> LoanResponse:
+    """Format loan for response, using variable schedule if available."""
+    schedule = db.get_loan_emi_schedule(loan["id"])
+    has_custom = len(schedule) > 0
+
+    if has_custom:
+        emi_lookup = {e["month_number"]: e["emi_amount"] for e in schedule}
+        total_paid = sum(
+            emi_lookup.get(m, loan["emi_amount"])
+            for m in range(1, loan["payments_made"] + 1)
+        )
+        outstanding = sum(
+            emi_lookup.get(m, loan["emi_amount"])
+            for m in range(loan["payments_made"] + 1, loan["tenure_months"] + 1)
+        )
+    else:
+        total_paid = loan["payments_made"] * loan["emi_amount"]
+        outstanding = (loan["tenure_months"] - loan["payments_made"]) * loan["emi_amount"]
+
     payments_remaining = loan["tenure_months"] - loan["payments_made"]
-    total_paid = loan["payments_made"] * loan["emi_amount"]
-    outstanding = payments_remaining * loan["emi_amount"]
 
     return LoanResponse(
         id=loan["id"],
@@ -283,5 +391,6 @@ def _format_loan(loan: dict) -> LoanResponse:
         is_active=bool(loan["is_active"]),
         total_paid=total_paid,
         outstanding=outstanding,
+        has_custom_schedule=has_custom,
     )
 

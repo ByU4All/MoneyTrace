@@ -133,6 +133,10 @@ From [idea.md](../idea.md):
 - Desktop: `~/.moneytrace/moneytrace.db`
 - Android (Termux): `~/.moneytrace/moneytrace.db`
 
+## Mobile App
+
+A native Flutter Android app is also available at [`../mobile/`](../mobile/). See [MOBILE_APP.md](../MOBILE_APP.md) for full documentation.
+
 ## License
 
 MIT

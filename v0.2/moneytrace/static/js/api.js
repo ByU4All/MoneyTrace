@@ -166,6 +166,28 @@ const API = {
         });
     },
 
+    async importData(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch(`${this.baseUrl}/import`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                throw new Error(error.detail || `HTTP ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (err) {
+            console.error('API Error [/import]:', err);
+            throw err;
+        }
+    },
+
     // -------------------------------------------------------------------------
     // Categories
     // -------------------------------------------------------------------------
@@ -352,6 +374,23 @@ const API = {
 
     async getLoanSchedule(loanId) {
         return this.request(`/loans/${loanId}/schedule`);
+    },
+
+    async getLoanEmiSchedule(loanId) {
+        return this.request(`/loans/${loanId}/emi-schedule`);
+    },
+
+    async setLoanEmiSchedule(loanId, schedule) {
+        return this.request(`/loans/${loanId}/emi-schedule`, {
+            method: 'PUT',
+            body: JSON.stringify({ schedule })
+        });
+    },
+
+    async deleteLoanEmiSchedule(loanId) {
+        return this.request(`/loans/${loanId}/emi-schedule`, {
+            method: 'DELETE'
+        });
     },
 
     // -------------------------------------------------------------------------

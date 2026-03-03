@@ -686,6 +686,17 @@ const Screens = {
                 </div>
 
                 <div class="settings-section mt-lg">
+                    <h3 class="settings-section-title">Restore</h3>
+                    <input type="file" id="import-file-input" accept=".json" style="display:none;">
+                    <button class="btn btn-secondary btn-block" id="import-data-btn">
+                        📤 Import Data
+                    </button>
+                    <span class="form-help text-center mt-sm" style="display:block;">
+                        Restore from a JSON backup file (replaces all data)
+                    </span>
+                </div>
+
+                <div class="settings-section mt-lg">
                     <h3 class="settings-section-title danger">Danger Zone</h3>
                     <button class="btn btn-danger btn-block" id="clear-data-btn">
                         🗑️ Clear All Data
@@ -736,6 +747,86 @@ const Screens = {
 
             <button class="btn btn-danger btn-block" id="confirm-clear-btn" disabled>
                 Clear All Data
+            </button>
+        `;
+    },
+
+    // -------------------------------------------------------------------------
+    // EMI Schedule Modal
+    // -------------------------------------------------------------------------
+
+    emiScheduleModal(loan, schedule = []) {
+        const rows = schedule.length > 0
+            ? schedule.map(e => `
+                <div class="form-row emi-schedule-row">
+                    <div class="form-group" style="flex:1;">
+                        <input type="number" class="form-input emi-month-input" value="${e.month_number}" min="1" max="${loan.tenure_months}">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <input type="number" class="form-input emi-amount-input" value="${e.emi_amount / 100}">
+                    </div>
+                </div>
+            `).join('')
+            : `
+                <div class="form-row emi-schedule-row">
+                    <div class="form-group" style="flex:1;">
+                        <input type="number" class="form-input emi-month-input" placeholder="Month #" min="1" max="${loan.tenure_months}">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <input type="number" class="form-input emi-amount-input" placeholder="EMI (₹)">
+                    </div>
+                </div>
+            `;
+
+        return `
+            <div class="modal-header">
+                <h2 class="modal-title">Variable EMI Schedule</h2>
+                <button class="modal-close" id="close-emi-schedule">✕</button>
+            </div>
+            <p class="text-muted">Set custom EMI amounts for specific months. Months not listed use the default EMI of ${this.formatAmount(loan.emi_amount)}.</p>
+            <div class="form-row" style="margin-bottom: 0.25rem;">
+                <div style="flex:1; font-weight:bold; font-size:0.85rem;">Month #</div>
+                <div style="flex:1; font-weight:bold; font-size:0.85rem;">EMI (₹)</div>
+            </div>
+            <div id="emi-schedule-edit-rows">
+                ${rows}
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm mt-sm" id="add-emi-edit-row-btn">+ Add Month</button>
+            <div class="modal-actions mt-lg">
+                <button type="button" class="btn btn-secondary" id="cancel-emi-schedule">Cancel</button>
+                <button type="button" class="btn btn-primary" id="save-emi-schedule" data-loan-id="${loan.id}">Save Schedule</button>
+            </div>
+        `;
+    },
+
+    // -------------------------------------------------------------------------
+    // Import Data Confirmation Modal
+    // -------------------------------------------------------------------------
+
+    importDataConfirm(fileName) {
+        return `
+            <div class="modal-header">
+                <h2 class="modal-title danger">⚠️ Import Data</h2>
+                <button class="modal-close" id="close-import-confirm">✕</button>
+            </div>
+
+            <div class="clear-data-warning">
+                <p>This will <strong>replace all existing data</strong> with the backup from:</p>
+                <p style="text-align:center; font-weight:bold; margin: 0.5rem 0;">${fileName}</p>
+                <p>All current transactions, accounts, loans, and recurring items will be deleted first.</p>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Type IMPORT to confirm:</label>
+                <input type="text"
+                       id="import-confirm-input"
+                       class="form-input"
+                       placeholder="IMPORT"
+                       autocomplete="off">
+            </div>
+
+            <button class="btn btn-danger btn-block" id="confirm-import-btn" disabled>
+                Replace All Data
             </button>
         `;
     },
@@ -1226,6 +1317,27 @@ const Screens = {
                     </div>
                 </div>
                 <div class="form-group">
+                    <label class="form-checkbox">
+                        <input type="checkbox" id="variable-emi-toggle">
+                        <span>Variable EMI (step-up/step-down)</span>
+                    </label>
+                    <span class="form-help">Different EMI amounts per month</span>
+                </div>
+                <div id="variable-emi-section" style="display:none;">
+                    <div class="form-help mb-sm">Enter EMI amounts for months that differ from the default. Unlisted months use the default EMI above.</div>
+                    <div id="emi-schedule-rows">
+                        <div class="form-row emi-schedule-row">
+                            <div class="form-group" style="flex:1;">
+                                <input type="number" class="form-input emi-month-input" placeholder="Month #" min="1">
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <input type="number" class="form-input emi-amount-input" placeholder="EMI (₹)">
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" id="add-emi-row-btn">+ Add Month</button>
+                </div>
+                <div class="form-group">
                     <label class="form-label">Lender (Optional)</label>
                     <input type="text" name="lender" class="form-input" placeholder="e.g., HDFC Bank">
                 </div>
@@ -1522,9 +1634,32 @@ const Screens = {
             </div>
 
             <div class="section-divider"></div>
-            
+
+            <h3 class="section-subtitle">EMI Schedule</h3>
+            <div id="loan-emi-schedule-section">
+                ${loan.has_custom_schedule
+                    ? '<p class="text-muted">This loan has a variable EMI schedule.</p>'
+                    : '<p class="text-muted">Using fixed EMI of ' + this.formatAmount(loan.emi_amount) + '/month.</p>'
+                }
+                <div class="modal-actions" style="margin-top: 0.5rem;">
+                    <button type="button" class="btn btn-secondary btn-sm" id="view-amortization-btn" data-loan-id="${loan.id}">
+                        View Amortization
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="manage-emi-schedule-btn" data-loan-id="${loan.id}">
+                        ${loan.has_custom_schedule ? 'Edit Schedule' : 'Set Variable EMI'}
+                    </button>
+                    ${loan.has_custom_schedule ? `
+                        <button type="button" class="btn btn-danger btn-sm" id="revert-fixed-emi-btn" data-loan-id="${loan.id}">
+                            Revert to Fixed
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+
+            <div class="section-divider"></div>
+
             <h3 class="section-subtitle">Edit Details</h3>
-            
+
             <form id="edit-loan-form">
                 <input type="hidden" name="id" value="${loan.id}">
                 

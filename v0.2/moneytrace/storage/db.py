@@ -261,6 +261,19 @@ class Database:
             )
         """)
 
+        # Loan EMI schedule table - variable EMI amounts per month
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS loan_emi_schedule (
+                id TEXT PRIMARY KEY,
+                loan_id TEXT NOT NULL,
+                month_number INTEGER NOT NULL,
+                emi_amount INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (loan_id) REFERENCES loans(id),
+                UNIQUE(loan_id, month_number)
+            )
+        """)
+
         # Audit log table - tracks all CRUD operations for timeline
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS audit_log (
@@ -918,6 +931,7 @@ class Database:
             "recurring_transactions": self.get_recurring_transactions(active_only=False),
             "loans": self.get_loans(active_only=False),
             "credit_card_statements": self.get_credit_card_statements(),
+            "loan_emi_schedules": self._get_all_loan_emi_schedules(),
         }
 
     def import_all(self, data: dict) -> None:
@@ -932,6 +946,7 @@ class Database:
         cursor.execute("DELETE FROM accounts")
         cursor.execute("DELETE FROM recurring_transactions")
         cursor.execute("DELETE FROM pending_transactions")
+        cursor.execute("DELETE FROM loan_emi_schedule")
         cursor.execute("DELETE FROM loans")
         cursor.execute("DELETE FROM credit_card_statements")
 
@@ -964,11 +979,96 @@ class Database:
                 (friend["id"], friend["name"], friend.get("phone"), friend["created_at"])
             )
 
-        # Import events
+        # Import accounts
+        for acct in data.get("accounts", []):
+            cursor.execute("""
+                INSERT INTO accounts (id, name, type, institution, last_4_digits, color, icon,
+                    tracked_balance, current_balance, is_credit, credit_limit,
+                    billing_day, due_day, is_active, is_default, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                acct["id"], acct["name"], acct["type"],
+                acct.get("institution"), acct.get("last_4_digits"),
+                acct.get("color"), acct.get("icon"),
+                acct.get("tracked_balance", 0), acct.get("current_balance", 0),
+                acct.get("is_credit", 0), acct.get("credit_limit"),
+                acct.get("billing_day"), acct.get("due_day"),
+                acct.get("is_active", 1), acct.get("is_default", 0),
+                acct["created_at"],
+            ))
+
+        # Import loans (before recurring, since recurring may reference loans)
+        for loan in data.get("loans", []):
+            cursor.execute("""
+                INSERT INTO loans (id, name, type, principal, interest_rate, tenure_months,
+                    emi_amount, start_date, emi_day, payments_made,
+                    payment_account_id, payment_type, credit_card_id,
+                    lender, purpose, is_active, foreclosure_amount, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                loan["id"], loan["name"], loan["type"],
+                loan["principal"], loan["interest_rate"], loan["tenure_months"],
+                loan["emi_amount"], loan["start_date"], loan["emi_day"],
+                loan.get("payments_made", 0),
+                loan.get("payment_account_id"), loan.get("payment_type", "manual"),
+                loan.get("credit_card_id"),
+                loan.get("lender"), loan.get("purpose"),
+                loan.get("is_active", 1), loan.get("foreclosure_amount"),
+                loan["created_at"],
+            ))
+
+        # Import recurring transactions
+        for rec in data.get("recurring_transactions", []):
+            cursor.execute("""
+                INSERT INTO recurring_transactions (id, name, type, amount, category, account_id,
+                    frequency, day_of_month, day_of_week, start_date, end_date,
+                    requires_verification, auto_apply, is_autopay, is_active,
+                    last_applied_date, next_due_date, linked_loan_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                rec["id"], rec["name"], rec["type"], rec["amount"],
+                rec.get("category"), rec.get("account_id"),
+                rec["frequency"], rec.get("day_of_month"), rec.get("day_of_week"),
+                rec["start_date"], rec.get("end_date"),
+                rec.get("requires_verification", 1), rec.get("auto_apply", 0),
+                rec.get("is_autopay", 0), rec.get("is_active", 1),
+                rec.get("last_applied_date"), rec.get("next_due_date"),
+                rec.get("linked_loan_id"),
+                rec["created_at"],
+            ))
+
+        # Import credit card statements
+        for stmt in data.get("credit_card_statements", []):
+            cursor.execute("""
+                INSERT INTO credit_card_statements (id, card_account_id, statement_date, due_date,
+                    statement_amount, minimum_due, paid_amount, paid_date, is_fully_paid, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                stmt["id"], stmt["card_account_id"],
+                stmt["statement_date"], stmt["due_date"],
+                stmt["statement_amount"], stmt["minimum_due"],
+                stmt.get("paid_amount", 0), stmt.get("paid_date"),
+                stmt.get("is_fully_paid", 0),
+                stmt["created_at"],
+            ))
+
+        # Import loan EMI schedules
+        for sched in data.get("loan_emi_schedules", []):
+            cursor.execute("""
+                INSERT INTO loan_emi_schedule (id, loan_id, month_number, emi_amount, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                sched["id"], sched["loan_id"], sched["month_number"],
+                sched["emi_amount"], sched["created_at"],
+            ))
+
+        # Import events (after accounts/loans so foreign keys are valid)
         for event in data.get("events", []):
             cursor.execute("""
-                INSERT INTO events (id, type, amount, category, description, friend_id, event_date, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO events (id, type, amount, category, description, friend_id,
+                    account_id, from_account_id, to_account_id, recurring_id, loan_id,
+                    event_date, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 event["id"],
                 event["type"],
@@ -976,6 +1076,11 @@ class Database:
                 event.get("category"),
                 event.get("description"),
                 event.get("friend_id"),
+                event.get("account_id"),
+                event.get("from_account_id"),
+                event.get("to_account_id"),
+                event.get("recurring_id"),
+                event.get("loan_id"),
                 event["event_date"],
                 event["created_at"],
             ))
@@ -1745,6 +1850,72 @@ class Database:
         )
         self.conn.commit()
         return cursor.rowcount > 0
+
+    # ---------------------------------------------------------------------------
+    # Loan EMI Schedule (variable EMI per month)
+    # ---------------------------------------------------------------------------
+
+    def set_loan_emi_schedule(self, loan_id: str, schedule: list[dict]) -> None:
+        """
+        Replace all EMI schedule entries for a loan.
+        Each entry: {"month_number": int, "emi_amount": int}
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM loan_emi_schedule WHERE loan_id = ?", (loan_id,))
+
+        now = date.today().isoformat()
+        for entry in schedule:
+            cursor.execute("""
+                INSERT INTO loan_emi_schedule (id, loan_id, month_number, emi_amount, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (
+                str(uuid4()), loan_id, entry["month_number"], entry["emi_amount"], now
+            ))
+        self.conn.commit()
+
+    def get_loan_emi_schedule(self, loan_id: str) -> list[dict]:
+        """Get EMI schedule for a loan, ordered by month number."""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT id, loan_id, month_number, emi_amount, created_at
+            FROM loan_emi_schedule
+            WHERE loan_id = ?
+            ORDER BY month_number
+        """, (loan_id,))
+        return [dict(row) for row in cursor.fetchall()]
+
+    def get_emi_for_month(self, loan_id: str, month_number: int) -> int:
+        """
+        Get EMI amount for a specific month of a loan.
+        Falls back to loans.emi_amount if no custom schedule exists.
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT emi_amount FROM loan_emi_schedule
+            WHERE loan_id = ? AND month_number = ?
+        """, (loan_id, month_number))
+        row = cursor.fetchone()
+        if row:
+            return row["emi_amount"]
+        # Fallback to default
+        loan = self.get_loan(loan_id)
+        return loan["emi_amount"] if loan else 0
+
+    def delete_loan_emi_schedule(self, loan_id: str) -> None:
+        """Delete all custom EMI schedule entries for a loan (revert to fixed EMI)."""
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM loan_emi_schedule WHERE loan_id = ?", (loan_id,))
+        self.conn.commit()
+
+    def _get_all_loan_emi_schedules(self) -> list[dict]:
+        """Get all EMI schedule entries (for export)."""
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT id, loan_id, month_number, emi_amount, created_at
+            FROM loan_emi_schedule
+            ORDER BY loan_id, month_number
+        """)
+        return [dict(row) for row in cursor.fetchall()]
 
     # ---------------------------------------------------------------------------
     # Credit Card Statements

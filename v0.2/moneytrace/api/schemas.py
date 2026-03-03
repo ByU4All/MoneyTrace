@@ -301,7 +301,7 @@ class LoanCreate(BaseModel):
     principal: int = Field(..., gt=0, description="Principal amount in paise")
     interest_rate: float = Field(..., ge=0, description="Annual interest rate %")
     tenure_months: int = Field(..., gt=0, description="Tenure in months")
-    emi_amount: int = Field(..., gt=0, description="Monthly EMI in paise")
+    emi_amount: int = Field(..., gt=0, description="Monthly EMI in paise (default for fixed, or fallback for variable)")
     start_date: date
     emi_day: int = Field(..., ge=1, le=28, description="EMI due day of month")
     payment_account_id: Optional[str] = None
@@ -309,6 +309,7 @@ class LoanCreate(BaseModel):
     credit_card_id: Optional[str] = None
     lender: Optional[str] = None
     purpose: Optional[str] = None
+    emi_schedule: Optional[list] = Field(None, description="Variable EMI schedule: [{month_number, emi_amount}, ...]")
 
 
 class LoanUpdate(BaseModel):
@@ -345,6 +346,29 @@ class LoanResponse(BaseModel):
     is_active: bool
     total_paid: int
     outstanding: int
+    has_custom_schedule: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Loan EMI Schedule Schemas
+# ---------------------------------------------------------------------------
+
+class EmiScheduleEntry(BaseModel):
+    """Single entry in a variable EMI schedule."""
+    month_number: int = Field(..., ge=1, description="Month number (1-based)")
+    emi_amount: int = Field(..., gt=0, description="EMI amount in paise for this month")
+
+
+class EmiScheduleCreate(BaseModel):
+    """Create/replace a variable EMI schedule for a loan."""
+    schedule: list[EmiScheduleEntry] = Field(..., min_length=1)
+
+
+class EmiScheduleResponse(BaseModel):
+    """Variable EMI schedule in API response."""
+    loan_id: str
+    has_custom_schedule: bool
+    schedule: list[EmiScheduleEntry]
 
 
 # ---------------------------------------------------------------------------

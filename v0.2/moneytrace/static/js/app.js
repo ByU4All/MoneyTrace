@@ -656,6 +656,20 @@ const App = {
             exportBtn.addEventListener('click', () => this.handleExport());
         }
 
+        // Import data button
+        const importBtn = document.getElementById('import-data-btn');
+        const importFileInput = document.getElementById('import-file-input');
+        if (importBtn && importFileInput) {
+            importBtn.addEventListener('click', () => importFileInput.click());
+            importFileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    this.showImportDataConfirm(modal, file);
+                    importFileInput.value = '';
+                }
+            });
+        }
+
         // Clear data button
         const clearDataBtn = document.getElementById('clear-data-btn');
         if (clearDataBtn) {
@@ -904,6 +918,60 @@ const App = {
                 this.showToast('Category deleted!', 'success');
             } catch (err) {
                 this.showToast('Error: ' + err.message, 'error');
+            }
+        });
+    },
+
+    // -------------------------------------------------------------------------
+    // Import Data
+    // -------------------------------------------------------------------------
+
+    showImportDataConfirm(parentModal, file) {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.id = 'import-data-modal';
+
+        const modal = document.createElement('div');
+        modal.className = 'modal modal-small';
+        modal.innerHTML = Screens.importDataConfirm(file.name);
+
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        // Bind handlers
+        document.getElementById('close-import-confirm').addEventListener('click', () => {
+            overlay.remove();
+        });
+
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) overlay.remove();
+        });
+
+        // Enable confirm button only when "IMPORT" is typed
+        const confirmInput = document.getElementById('import-confirm-input');
+        const confirmBtn = document.getElementById('confirm-import-btn');
+
+        confirmInput.addEventListener('input', () => {
+            confirmBtn.disabled = confirmInput.value !== 'IMPORT';
+        });
+
+        confirmBtn.addEventListener('click', async () => {
+            try {
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = 'Importing...';
+
+                await API.importData(file);
+                overlay.remove();
+                this.closeSettings();
+
+                this.showToast('Data imported successfully!', 'success');
+
+                // Refresh current screen
+                this.showScreen(this.currentScreen);
+            } catch (err) {
+                this.showToast('Import failed: ' + err.message, 'error');
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Replace All Data';
             }
         });
     },
@@ -1448,6 +1516,81 @@ const App = {
             }
         });
 
+        // View amortization
+        const amortBtn = document.getElementById('view-amortization-btn');
+        if (amortBtn) {
+            amortBtn.addEventListener('click', async () => {
+                try {
+                    const scheduleData = await API.getLoanSchedule(loan.id);
+                    const schedHtml = scheduleData.schedule.map(s => `
+                        <tr class="${s.paid ? 'row-paid' : ''}">
+                            <td>${s.month}</td>
+                            <td>${Screens.formatAmount(s.emi)}</td>
+                            <td>${Screens.formatAmount(s.principal)}</td>
+                            <td>${Screens.formatAmount(s.interest)}</td>
+                            <td>${Screens.formatAmount(s.balance)}</td>
+                            <td>${s.paid ? '✓' : ''}</td>
+                        </tr>
+                    `).join('');
+
+                    const schedOverlay = document.createElement('div');
+                    schedOverlay.className = 'modal-overlay';
+                    const schedModal = document.createElement('div');
+                    schedModal.className = 'modal modal-large';
+                    schedModal.innerHTML = `
+                        <div class="modal-header">
+                            <h2 class="modal-title">Amortization Schedule</h2>
+                            <button class="modal-close" id="close-amort-modal">✕</button>
+                        </div>
+                        <div style="overflow-x:auto;">
+                            <table class="data-table">
+                                <thead><tr>
+                                    <th>Month</th><th>EMI</th><th>Principal</th><th>Interest</th><th>Balance</th><th>Paid</th>
+                                </tr></thead>
+                                <tbody>${schedHtml}</tbody>
+                            </table>
+                        </div>
+                    `;
+                    schedOverlay.appendChild(schedModal);
+                    document.body.appendChild(schedOverlay);
+                    document.getElementById('close-amort-modal').addEventListener('click', () => schedOverlay.remove());
+                    schedOverlay.addEventListener('click', (e) => { if (e.target === schedOverlay) schedOverlay.remove(); });
+                } catch (err) {
+                    this.showToast('Error: ' + err.message, 'error');
+                }
+            });
+        }
+
+        // Manage EMI schedule
+        const manageBtn = document.getElementById('manage-emi-schedule-btn');
+        if (manageBtn) {
+            manageBtn.addEventListener('click', async () => {
+                try {
+                    const emiData = await API.getLoanEmiSchedule(loan.id);
+                    this.showEmiScheduleModal(overlay, loan, emiData.schedule);
+                } catch (err) {
+                    this.showToast('Error: ' + err.message, 'error');
+                }
+            });
+        }
+
+        // Revert to fixed EMI
+        const revertBtn = document.getElementById('revert-fixed-emi-btn');
+        if (revertBtn) {
+            revertBtn.addEventListener('click', async () => {
+                if (confirm('Revert to fixed EMI? The variable schedule will be deleted.')) {
+                    try {
+                        await API.deleteLoanEmiSchedule(loan.id);
+                        overlay.remove();
+                        this.showToast('Reverted to fixed EMI', 'success');
+                        this.loadLoans(document.getElementById('main-content'));
+                    } catch (err) {
+                        this.showToast('Error: ' + err.message, 'error');
+                    }
+                }
+            });
+        }
+
         // Edit form submission
         document.getElementById('edit-loan-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1478,6 +1621,63 @@ const App = {
         });
     },
 
+    showEmiScheduleModal(parentOverlay, loan, schedule) {
+        const schedOverlay = document.createElement('div');
+        schedOverlay.className = 'modal-overlay';
+        const schedModal = document.createElement('div');
+        schedModal.className = 'modal';
+        schedModal.innerHTML = Screens.emiScheduleModal(loan, schedule);
+        schedOverlay.appendChild(schedModal);
+        document.body.appendChild(schedOverlay);
+
+        document.getElementById('close-emi-schedule').addEventListener('click', () => schedOverlay.remove());
+        document.getElementById('cancel-emi-schedule').addEventListener('click', () => schedOverlay.remove());
+        schedOverlay.addEventListener('click', (e) => { if (e.target === schedOverlay) schedOverlay.remove(); });
+
+        // Add row button
+        document.getElementById('add-emi-edit-row-btn').addEventListener('click', () => {
+            const container = document.getElementById('emi-schedule-edit-rows');
+            const row = document.createElement('div');
+            row.className = 'form-row emi-schedule-row';
+            row.innerHTML = `
+                <div class="form-group" style="flex:1;">
+                    <input type="number" class="form-input emi-month-input" placeholder="Month #" min="1" max="${loan.tenure_months}">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <input type="number" class="form-input emi-amount-input" placeholder="EMI (₹)">
+                </div>
+            `;
+            container.appendChild(row);
+        });
+
+        // Save button
+        document.getElementById('save-emi-schedule').addEventListener('click', async () => {
+            const entries = [];
+            document.querySelectorAll('#emi-schedule-edit-rows .emi-schedule-row').forEach(row => {
+                const month = parseInt(row.querySelector('.emi-month-input').value);
+                const amount = parseFloat(row.querySelector('.emi-amount-input').value);
+                if (month && amount) {
+                    entries.push({ month_number: month, emi_amount: Math.round(amount * 100) });
+                }
+            });
+
+            if (entries.length === 0) {
+                this.showToast('Add at least one month entry', 'error');
+                return;
+            }
+
+            try {
+                await API.setLoanEmiSchedule(loan.id, entries);
+                schedOverlay.remove();
+                parentOverlay.remove();
+                this.showToast('EMI schedule saved!', 'success');
+                this.loadLoans(document.getElementById('main-content'));
+            } catch (err) {
+                this.showToast('Error: ' + err.message, 'error');
+            }
+        });
+    },
+
     async showAddLoanModal() {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
@@ -1502,6 +1702,34 @@ const App = {
             if (e.target === overlay) overlay.remove();
         });
 
+        // Variable EMI toggle
+        const variableToggle = document.getElementById('variable-emi-toggle');
+        const variableSection = document.getElementById('variable-emi-section');
+        if (variableToggle && variableSection) {
+            variableToggle.addEventListener('change', () => {
+                variableSection.style.display = variableToggle.checked ? 'block' : 'none';
+            });
+        }
+
+        // Add EMI schedule row button
+        const addRowBtn = document.getElementById('add-emi-row-btn');
+        if (addRowBtn) {
+            addRowBtn.addEventListener('click', () => {
+                const container = document.getElementById('emi-schedule-rows');
+                const row = document.createElement('div');
+                row.className = 'form-row emi-schedule-row';
+                row.innerHTML = `
+                    <div class="form-group" style="flex:1;">
+                        <input type="number" class="form-input emi-month-input" placeholder="Month #" min="1">
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <input type="number" class="form-input emi-amount-input" placeholder="EMI (₹)">
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
         // Form submission
         document.getElementById('add-loan-form').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1520,6 +1748,21 @@ const App = {
                 lender: formData.get('lender') || null,
                 payment_account_id: formData.get('payment_account_id') || null,
             };
+
+            // Collect variable EMI schedule if enabled
+            if (variableToggle && variableToggle.checked) {
+                const schedule = [];
+                document.querySelectorAll('#emi-schedule-rows .emi-schedule-row').forEach(row => {
+                    const month = parseInt(row.querySelector('.emi-month-input').value);
+                    const amount = parseFloat(row.querySelector('.emi-amount-input').value);
+                    if (month && amount) {
+                        schedule.push({ month_number: month, emi_amount: Math.round(amount * 100) });
+                    }
+                });
+                if (schedule.length > 0) {
+                    loan.emi_schedule = schedule;
+                }
+            }
 
             try {
                 submitBtn.disabled = true;
