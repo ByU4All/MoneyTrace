@@ -12,6 +12,7 @@ class DashboardData {
   final int liabilities;
   final int receivables;
   final int unpaidCommitments;
+  final List<Map<String, dynamic>> unpaidRecurringItems;
   final Map<String, int> categorySpend;
   final List<Map<String, dynamic>> recentEvents;
   final int currentMonth;
@@ -26,6 +27,7 @@ class DashboardData {
     required this.liabilities,
     required this.receivables,
     this.unpaidCommitments = 0,
+    this.unpaidRecurringItems = const [],
     required this.categorySpend,
     required this.recentEvents,
     required this.currentMonth,
@@ -62,13 +64,27 @@ final dashboardProvider = FutureProvider.autoDispose<DashboardData>((ref) async 
   final unpaidRecurring = <Map<String, dynamic>>[];
   for (final rec in activeRecurring) {
     if (rec.type != 'expense' && rec.type != 'emi_payment') continue;
-    // Check if due this month and not yet paid
-    final nextDue = rec.nextDueDate != null ? DateTime.tryParse(rec.nextDueDate!) : null;
-    if (nextDue != null && nextDue.month == month && nextDue.year == year) {
-      // Check if an event already exists for this recurring in this month
-      final hasEvent = events.any((e) => e['recurring_id'] == rec.id);
+
+    // Determine if this recurring is relevant for the current budget period
+    bool relevantThisMonth = false;
+    if (rec.frequency == 'monthly' || rec.frequency == 'daily' || rec.frequency == 'weekly') {
+      // Always relevant — check if already paid this month
+      relevantThisMonth = true;
+    } else if (rec.frequency == 'yearly') {
+      // Only relevant if nextDueDate falls in this month
+      final nextDue = rec.nextDueDate != null ? DateTime.tryParse(rec.nextDueDate!) : null;
+      if (nextDue != null && nextDue.month == month && nextDue.year == year) {
+        relevantThisMonth = true;
+      }
+    }
+
+    if (relevantThisMonth) {
+      // Check if an event matching this recurring's description already exists this month
+      final hasEvent = events.any((e) =>
+          e['recurring_id'] == rec.id ||
+          (e['description'] == rec.name && e['type'] == rec.type));
       if (!hasEvent) {
-        unpaidRecurring.add({'type': rec.type, 'amount': rec.amount});
+        unpaidRecurring.add({'type': rec.type, 'amount': rec.amount, 'name': rec.name});
       }
     }
   }
@@ -90,6 +106,7 @@ final dashboardProvider = FutureProvider.autoDispose<DashboardData>((ref) async 
     liabilities: liabilities,
     receivables: receivables,
     unpaidCommitments: unpaidCommitments,
+    unpaidRecurringItems: unpaidRecurring,
     categorySpend: categorySpend,
     recentEvents: recentEvents,
     currentMonth: month,

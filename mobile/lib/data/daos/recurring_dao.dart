@@ -24,6 +24,7 @@ class RecurringDao {
     bool autoApply = false,
     bool isAutopay = false,
     String? linkedLoanId,
+    String? nextDueDate,
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now().toIso8601String().split('T')[0];
@@ -41,6 +42,7 @@ class RecurringDao {
         dayOfWeek: Value(dayOfWeek),
         startDate: startDate,
         endDate: Value(endDate),
+        nextDueDate: Value(nextDueDate),
         requiresVerification: Value(requiresVerification ? 1 : 0),
         autoApply: Value(autoApply ? 1 : 0),
         isAutopay: Value(isAutopay ? 1 : 0),

@@ -52,14 +52,42 @@ class MainShell extends ConsumerStatefulWidget {
 
 class _MainShellState extends ConsumerState<MainShell> {
   int _currentIndex = 0;
+  late final PageController _pageController;
+
+  // Actual page screens (no placeholder for index 2)
+  static const _pages = [
+    DashboardScreen(),  // nav index 0 → page 0
+    AccountsScreen(),   // nav index 1 → page 1
+    RecurringScreen(),  // nav index 3 → page 2
+    _MoreScreen(),      // nav index 4 → page 3
+  ];
+
+  // Maps nav bar index → page index (skipping index 2 = Add)
+  int _navToPage(int navIndex) {
+    if (navIndex <= 1) return navIndex;
+    return navIndex - 1; // 3→2, 4→3
+  }
+
+  // Maps page index → nav bar index
+  int _pageToNav(int pageIndex) {
+    if (pageIndex <= 1) return pageIndex;
+    return pageIndex + 1; // 2→3, 3→4
+  }
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     // Run autopay processing on startup
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _processAutopay();
     });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _processAutopay() async {
@@ -75,20 +103,15 @@ class _MainShellState extends ConsumerState<MainShell> {
     }
   }
 
-  final _screens = const [
-    DashboardScreen(),
-    AccountsScreen(),
-    SizedBox(), // Placeholder for FAB
-    RecurringScreen(),
-    _MoreScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex == 2 ? 0 : _currentIndex,
-        children: _screens,
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (pageIndex) {
+          setState(() => _currentIndex = _pageToNav(pageIndex));
+        },
+        children: _pages,
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.pushNamed(context, '/add'),
@@ -102,6 +125,7 @@ class _MainShellState extends ConsumerState<MainShell> {
             Navigator.pushNamed(context, '/add');
           } else {
             setState(() => _currentIndex = index);
+            _pageController.jumpToPage(_navToPage(index));
           }
         },
         items: const [

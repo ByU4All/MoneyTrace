@@ -5,84 +5,85 @@
 
 ---
 
-## Mobile App (Flutter) — v0.1.3+
+## Mobile App (Flutter) — v0.1.4 (Completed 2026-03-04)
 
 ### 1. Edit Transactions
-- [ ] Tap on a transaction in history to open edit modal
-- [ ] Allow editing: amount, description, category, account, date
-- [ ] Reversals — old transaction's impact on account balance/budget must be undone before applying edited values
-- [ ] Log edit in audit trail (old values -> new values)
-- [ ] Confirmation before saving edits
+- [x] Tap on a transaction in history to open edit modal (2026-03-04)
+- [x] Allow editing: amount, description, category, account, date (2026-03-04)
+- [x] Reversals — old transaction's impact on account balance/budget must be undone before applying edited values (2026-03-04)
+- [x] Log edit in audit trail (old values -> new values) (2026-03-04)
+- [x] Confirmation before saving edits (2026-03-04)
 
 ### 2. Mandatory Account Selection for Paid Transactions
-- [ ] If money was actually paid/received (expense, income, settlement_paid, settlement_received, transfer, credit_card_payment, emi_payment), account field is **required**
-- [ ] Only optional for non-cash-flow types (liability, receivable) where no money moved yet
-- [ ] Show validation error if account not selected for paid transactions
-- [ ] Pre-select default account if only one exists
+- [x] If money was actually paid/received (expense, income, settlement_paid, settlement_received, transfer, credit_card_payment, emi_payment), account field is **required** (2026-03-04)
+- [x] Only optional for non-cash-flow types (liability, receivable) where no money moved yet (2026-03-04)
+- [x] Show validation error if account not selected for paid transactions (2026-03-04)
+- [x] Pre-select default account if only one exists (2026-03-04)
 
 ### 3. Category Selection for Recurring Expenses
-- [ ] When adding a recurring of type EXPENSE, show category picker
-- [ ] Category gets saved with the recurring record
-- [ ] When recurring generates a transaction (auto or manual), category carries over to the created event
-- [ ] Existing recurring expenses should allow editing to add category
+- [x] When adding a recurring of type EXPENSE, show category picker (2026-03-04)
+- [x] Category gets saved with the recurring record (2026-03-04)
+- [x] When recurring generates a transaction (auto or manual), category carries over to the created event (2026-03-04)
+- [x] Existing recurring expenses should allow editing to add category (2026-03-04)
 
 ### 4. Recurring Reflected in Budget
-- [ ] Unpaid recurring for the current period must reduce available budget
-- [ ] Budget formula: `Available = Base + Adjustments + Settlements - Expenses - Liabilities - EMI - Unpaid Recurring`
-- [ ] Budget breakdown screen should show a "Reserved for Upcoming" line item
-- [ ] Once a recurring is paid/confirmed, it moves from "reserved" to "expense" in the breakdown
-
-### 6. Limit Recent Activity on Dashboard
-- [ ] Show only 4–5 most recent transactions on the dashboard
-- [ ] Add "View All" link/button that navigates to full history screen
-- [ ] Prevents excessive scrolling on the main dashboard
-
-### 7. Dashboard Tap Targets & Budget Summary Screen
-- [ ] **Loose tap targets** — "You Owe" and "Owed to You" sections should have generous tap areas (not pixel-precise)
-- [ ] **Budget box tap → Visual Summary screen** with:
-  - Category-wise circular/donut chart showing spending breakdown
-  - Remaining budget shown in the center or as a segment
-  - "You Owe" total and breakdown by friend
-  - "Owed to You" total and breakdown by friend
-  - Total spent this period
-- [ ] Summary should pull live data from current budget period
-
-### 8. Custom Icons for Activities & Accounts
-- [ ] **Activity type icons** (from `assets/icons/`):
-  - `expense.png` — Expense
-  - `income.png` — Income
-  - `transfer.png` — Transfer
-  - `i_owe.png` — I Owe
-  - `owes_me.png` — Owes Me
-  - `settle.png` — Settle
-- [ ] Use these icons in: Add Transaction type selector, transaction history list items
-- [ ] **Account type icons** (from `assets/icons/`):
-  - `bank.png` — Bank / Savings / Current
-  - `card.png` — Credit Card / Debit Card
-  - `cash.png` — Cash
-- [ ] **Remove "Wallet" account type**, replace with "Cash" using `cash.png`
-- [ ] Use account icons in: account selector dropdowns, account list screen, dashboard account cards
-
-### 9. Replace App Launcher Icon with MoneyTrace Logo
-- [ ] Use `assets/icons/moneytrace_logo_1024.png` as the Android launcher icon (replace default Flutter icon)
-- [ ] Use `assets/icons/moneytrace_logo_512.png` for smaller density variants
-- [ ] Generate all required Android icon sizes (mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi) from these source images
-- [ ] Update `android/app/src/main/AndroidManifest.xml` icon reference
-- [ ] Consider using `flutter_launcher_icons` package for automated generation
+- [x] Unpaid recurring for the current period must reduce available budget (2026-03-04)
+- [x] Budget formula: `Available = Base + Adjustments + Settlements - Expenses - Liabilities - EMI - Unpaid Recurring` (2026-03-04)
+- [x] Budget breakdown screen should show a "Reserved for Upcoming" line item (2026-03-04)
+- [x] Once a recurring is paid/confirmed, it moves from "reserved" to "expense" in the breakdown (2026-03-04)
 
 ### 5. Recurring: Autopay vs Manual
-- [ ] Add `is_autopay` flag to recurring model (DB migration)
-- [ ] UI toggle when creating/editing recurring: "Autopay" or "Manual"
-- [ ] **Autopay behavior**:
-  - On due date, automatically create the transaction event
-  - Deduct from the linked account
-  - Show in history as auto-generated transaction
-  - Still allow user to verify/adjust after auto-creation
-- [ ] **Manual behavior**:
-  - Shows as pending on due date
-  - User must explicitly confirm/complete it
-  - Option in "Add Expense" screen to "Complete Recurring" — pick from pending manual recurring items
-  - Stays as budget reservation until completed or skipped
+- [x] `is_autopay` flag already exists in recurring model — no migration needed (2026-03-04)
+- [x] UI toggle when creating/editing recurring: "Autopay" or "Manual" (2026-03-04)
+- [x] **Autopay behavior**: auto-creates events on app startup for overdue items, deducts from linked account, handles multiple missed cycles (2026-03-04)
+- [x] **Manual behavior**: "Complete a Recurring?" link in Add Expense screen, pre-fills from pending manual recurring (2026-03-04)
+
+### 6. Limit Recent Activity on Dashboard
+- [x] Show only 5 most recent transactions on the dashboard (2026-03-04)
+- [x] Add "View All" link/button that navigates to full history screen (2026-03-04)
+
+### 7. Dashboard Tap Targets & Budget Summary Screen
+- [x] **Loose tap targets** — "You Owe" and "Owed to You" wrapped in InkWell with padding (2026-03-04)
+- [x] **Budget box tap → Visual Summary screen** with category donut chart, budget overview grid, friend owe/owed breakdowns (2026-03-04)
+
+### 8. Custom Icons for Activities & Accounts
+- [x] PNG icons mapped via centralized `AppIcons` widget (2026-03-04)
+- [x] Used in: dashboard, history, accounts, recurring screens (2026-03-04)
+- [x] Account type icons: bank, card, cash (2026-03-04)
+
+### 9. Replace App Launcher Icon with MoneyTrace Logo
+- [x] Generated adaptive launcher icons using `flutter_launcher_icons` (2026-03-04)
+- [x] Uses `moneytrace_logo_1024.png` with black adaptive background (2026-03-04)
+
+---
+
+## Mobile App (Flutter) — v0.1.4 Hotfix (Completed 2026-03-04)
+
+### 1. Amount Coloring by Event Type
+- [x] Add `colorForEventType()` — outflows red, inflows green, neutral default (2026-03-04)
+- [x] Replace sign-based `colorize: true` with event-type-based color in dashboard + history (2026-03-04)
+
+### 2. Initial Balance for New Accounts
+- [x] Add "Initial Balance" TextField in add account sheet (2026-03-04)
+- [x] Parse to paise and pass `trackedBalance` to `createAccount()` (2026-03-04)
+
+### 3. Fix "Complete a Recurring" Filter
+- [x] Add Income tab to "Complete a Recurring?" button condition (2026-03-04)
+- [x] Remove type filter — show all non-autopay recurring, pre-fill handles values (2026-03-04)
+
+### 4. Fix Budget Recurring (nextDueDate + Logic)
+- [x] Set `nextDueDate` when creating recurring (computed from frequency + dayOfMonth) (2026-03-04)
+- [x] Set `nextDueDate` for linked EMI when creating loan (2026-03-04)
+- [x] Fix dashboard budget: monthly/daily/weekly always relevant, yearly checks nextDueDate month (2026-03-04)
+- [x] Match by description+type fallback when recurring_id not set (2026-03-04)
+
+### 5. Cross-Screen Provider Invalidation
+- [x] Create event → invalidate history + accounts (2026-03-04)
+- [x] Edit event → invalidate history + accounts (2026-03-04)
+- [x] Delete event → invalidate dashboard + accounts (2026-03-04)
+- [x] Account CRUD → invalidate dashboard (2026-03-04)
+- [x] Recurring CRUD → invalidate dashboard (2026-03-04)
+- [x] Loan create/close → invalidate dashboard + recurring (2026-03-04)
 
 ---
 

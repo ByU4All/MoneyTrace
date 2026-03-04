@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../providers/dashboard_provider.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
+import 'recurring_screen.dart' show recurringProvider;
 import '../widgets/amount_display.dart';
 import '../widgets/progress_bar.dart';
 
@@ -19,10 +21,15 @@ class LoansScreen extends ConsumerWidget {
     final loansAsync = ref.watch(loansProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Loans')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddLoanSheet(context, ref),
-        child: const Icon(Icons.add),
+      appBar: AppBar(
+        title: const Text('Loans'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_card),
+            tooltip: 'Add Loan',
+            onPressed: () => _showAddLoanSheet(context, ref),
+          ),
+        ],
       ),
       body: loansAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -210,6 +217,11 @@ class LoansScreen extends ConsumerWidget {
                     final endDate = DateTime(now.year + (endMonth - 1) ~/ 12, (endMonth - 1) % 12 + 1, now.day);
                     final endDateStr = '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}';
 
+                    // Compute nextDueDate for EMI
+                    final emiDueThisMonth = DateTime(now.year, now.month, emiDay.clamp(1, 28));
+                    final emiNextDue = emiDueThisMonth.isAfter(now) ? emiDueThisMonth : DateTime(now.year, now.month + 1, emiDay.clamp(1, 28));
+                    final emiNextDueStr = '${emiNextDue.year}-${emiNextDue.month.toString().padLeft(2, '0')}-${emiNextDue.day.toString().padLeft(2, '0')}';
+
                     await ref.read(recurringDaoProvider).createRecurring(
                       name: '$name EMI',
                       type: 'emi_payment',
@@ -219,9 +231,12 @@ class LoansScreen extends ConsumerWidget {
                       startDate: startDate,
                       endDate: endDateStr,
                       linkedLoanId: loanId,
+                      nextDueDate: emiNextDueStr,
                     );
 
                     ref.invalidate(loansProvider);
+                    ref.invalidate(dashboardProvider);
+                    ref.invalidate(recurringProvider);
                     if (context.mounted) Navigator.pop(context);
                   },
                   child: const Text('Add Loan'),
@@ -309,6 +324,8 @@ class LoansScreen extends ConsumerWidget {
                           }
 
                           ref.invalidate(loansProvider);
+                          ref.invalidate(dashboardProvider);
+                          ref.invalidate(recurringProvider);
                           if (context.mounted) Navigator.pop(context);
                         }
                       },

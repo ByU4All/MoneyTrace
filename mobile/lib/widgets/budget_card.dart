@@ -12,6 +12,7 @@ class BudgetCard extends StatelessWidget {
   final int receivables;
   final int unpaidCommitments;
   final VoidCallback? onTap;
+  final VoidCallback? onReservedTap;
   final VoidCallback? onLiabilitiesTap;
   final VoidCallback? onReceivablesTap;
 
@@ -24,6 +25,7 @@ class BudgetCard extends StatelessWidget {
     this.receivables = 0,
     this.unpaidCommitments = 0,
     this.onTap,
+    this.onReservedTap,
     this.onLiabilitiesTap,
     this.onReceivablesTap,
   });
@@ -81,10 +83,17 @@ class BudgetCard extends StatelessWidget {
                     color: AppColors.danger,
                   ),
                   if (unpaidCommitments > 0)
-                    _StatItem(
-                      label: 'Reserved',
-                      amount: unpaidCommitments,
-                      color: AppColors.info,
+                    InkWell(
+                      onTap: onReservedTap,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: _StatItem(
+                          label: 'Reserved',
+                          amount: unpaidCommitments,
+                          color: AppColors.info,
+                        ),
+                      ),
                     ),
                   InkWell(
                     onTap: onLiabilitiesTap,

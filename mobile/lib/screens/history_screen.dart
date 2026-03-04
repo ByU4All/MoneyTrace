@@ -5,8 +5,9 @@ import '../data/database.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
-import '../widgets/amount_display.dart';
+import '../widgets/amount_display.dart' show AmountDisplay, formatAmount, colorForEventType, signedAmount;
 import '../widgets/app_icons.dart';
+import 'accounts_screen.dart' show accountsProvider;
 import 'edit_event_screen.dart';
 
 final historyProvider = FutureProvider.autoDispose<List<Event>>((ref) async {
@@ -98,8 +99,9 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                       ),
                       trailing: AmountDisplay(
-                        amount: event.amount,
-                        colorize: true,
+                        amount: signedAmount(event.amount, event.type),
+                        showSign: true,
+                        color: colorForEventType(event.type),
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                       ),
                       onTap: () async {
@@ -155,6 +157,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     if (confirm == true) {
       await ref.read(eventDaoProvider).deleteEvent(event.id);
       ref.invalidate(historyProvider);
+      ref.invalidate(dashboardProvider);
+      ref.invalidate(accountsProvider);
     }
   }
 }

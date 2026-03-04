@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../providers/dashboard_provider.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart';
@@ -19,10 +20,15 @@ class AccountsScreen extends ConsumerWidget {
     final accountsAsync = ref.watch(accountsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Accounts')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddAccountSheet(context, ref),
-        child: const Icon(Icons.add),
+      appBar: AppBar(
+        title: const Text('Accounts'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_business),
+            tooltip: 'Add Account',
+            onPressed: () => _showAddAccountSheet(context, ref),
+          ),
+        ],
       ),
       body: accountsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -76,6 +82,7 @@ class AccountsScreen extends ConsumerWidget {
   void _showAddAccountSheet(BuildContext context, WidgetRef ref) {
     final nameController = TextEditingController();
     final institutionController = TextEditingController();
+    final balanceController = TextEditingController(text: '0');
     String selectedType = 'savings';
 
     showModalBottomSheet(
@@ -120,18 +127,28 @@ class AccountsScreen extends ConsumerWidget {
                 controller: institutionController,
                 decoration: const InputDecoration(labelText: 'Institution (optional)'),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: balanceController,
+                decoration: const InputDecoration(labelText: 'Initial Balance (\u20B9)'),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {
                   if (nameController.text.trim().isEmpty) return;
+                  final balanceRupees = double.tryParse(balanceController.text) ?? 0;
+                  final balancePaise = (balanceRupees * 100).round();
                   await ref.read(accountDaoProvider).createAccount(
                     name: nameController.text.trim(),
                     type: selectedType,
                     institution: institutionController.text.trim().isNotEmpty
                         ? institutionController.text.trim()
                         : null,
+                    trackedBalance: balancePaise,
                   );
                   ref.invalidate(accountsProvider);
+                  ref.invalidate(dashboardProvider);
                   if (context.mounted) Navigator.pop(context);
                 },
                 child: const Text('Add Account'),
@@ -196,6 +213,7 @@ class AccountsScreen extends ConsumerWidget {
                       : null,
                 );
                 ref.invalidate(accountsProvider);
+                ref.invalidate(dashboardProvider);
                 if (context.mounted) Navigator.pop(context);
               },
               child: const Text('Save Changes'),
@@ -253,6 +271,7 @@ class AccountsScreen extends ConsumerWidget {
                 onPressed: () async {
                   await ref.read(accountDaoProvider).deleteAccount(account.id);
                   ref.invalidate(accountsProvider);
+                  ref.invalidate(dashboardProvider);
                   if (context.mounted) Navigator.pop(context);
                 },
                 icon: const Icon(Icons.delete, color: AppColors.danger),

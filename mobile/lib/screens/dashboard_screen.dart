@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/dashboard_provider.dart';
 import '../theme/colors.dart';
-import '../widgets/amount_display.dart';
+import '../widgets/amount_display.dart' show AmountDisplay, formatAmount, colorForEventType, signedAmount;
 import '../widgets/app_icons.dart';
 import '../widgets/budget_card.dart';
 import 'visual_summary_screen.dart';
@@ -45,6 +45,9 @@ class DashboardScreen extends ConsumerWidget {
                   context,
                   MaterialPageRoute(builder: (_) => VisualSummaryScreen(data: data)),
                 ),
+                onReservedTap: data.unpaidRecurringItems.isNotEmpty
+                    ? () => _showReservedBreakdown(context, data)
+                    : null,
                 onLiabilitiesTap: () => _showBalanceSheet(
                   context,
                   title: 'You Owe',
@@ -62,7 +65,9 @@ class DashboardScreen extends ConsumerWidget {
                   filterPositive: true,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              const Divider(color: AppColors.surfaceLight, thickness: 1),
+              const SizedBox(height: 8),
 
               // Category Spending
               if (data.categorySpend.isNotEmpty) ...[
@@ -114,7 +119,9 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
+                const Divider(color: AppColors.surfaceLight, thickness: 1),
+                const SizedBox(height: 8),
               ],
 
               // Recent Activity
@@ -148,9 +155,9 @@ class DashboardScreen extends ConsumerWidget {
                           style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                         ),
                         trailing: AmountDisplay(
-                          amount: event['amount'] as int,
+                          amount: signedAmount(event['amount'] as int, event['type'] as String),
                           showSign: true,
-                          colorize: true,
+                          color: colorForEventType(event['type'] as String),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -165,6 +172,70 @@ class DashboardScreen extends ConsumerWidget {
               ],
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showReservedBreakdown(BuildContext context, DashboardData data) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.4,
+        minChildSize: 0.25,
+        maxChildSize: 0.7,
+        expand: false,
+        builder: (context, scrollController) => ListView(
+          controller: scrollController,
+          padding: const EdgeInsets.all(16),
+          children: [
+            const Center(
+              child: Text('Reserved', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: AmountDisplay(
+                amount: data.unpaidCommitments,
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.info,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Center(
+              child: Text(
+                'Unpaid recurring this month',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...data.unpaidRecurringItems.map((item) => ListTile(
+              leading: CircleAvatar(
+                backgroundColor: AppColors.surfaceLight,
+                child: Icon(
+                  item['type'] == 'emi_payment' ? Icons.receipt_long : Icons.repeat,
+                  color: AppColors.info,
+                  size: 18,
+                ),
+              ),
+              title: Text(item['name'] as String),
+              subtitle: Text(
+                item['type'] == 'emi_payment' ? 'EMI Payment' : 'Expense',
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+              ),
+              trailing: AmountDisplay(
+                amount: item['amount'] as int,
+                style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.info),
+              ),
+            )),
+          ],
         ),
       ),
     );

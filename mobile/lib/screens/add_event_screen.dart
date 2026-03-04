@@ -6,6 +6,8 @@ import '../providers/database_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart' show formatAmount;
+import 'history_screen.dart' show historyProvider;
+import 'accounts_screen.dart' show accountsProvider;
 
 /// Event creation screen with type tabs.
 class AddEventScreen extends ConsumerStatefulWidget {
@@ -295,8 +297,8 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
               ),
             ),
 
-            // Complete a pending recurring (for expense/emi tabs)
-            if (_currentEventType == EventType.expense || _currentEventType == EventType.emiPayment) ...[
+            // Complete a pending recurring (for expense/emi/income tabs)
+            if (_currentEventType == EventType.expense || _currentEventType == EventType.emiPayment || _currentEventType == EventType.income) ...[
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerLeft,
@@ -327,9 +329,8 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
   void _showPendingRecurring() async {
     final recurringDao = ref.read(recurringDaoProvider);
     final items = await recurringDao.getRecurring();
-    // Filter to manual (non-autopay) recurring matching current type
-    final typeStr = _currentEventType.value;
-    final pending = items.where((r) => r.type == typeStr && r.isAutopay != 1).toList();
+    // Filter to manual (non-autopay) recurring — show all types, pre-fill handles the rest
+    final pending = items.where((r) => r.isAutopay != 1).toList();
 
     if (!mounted) return;
     if (pending.isEmpty) {
@@ -459,6 +460,8 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
       }
 
       ref.invalidate(dashboardProvider);
+      ref.invalidate(historyProvider);
+      ref.invalidate(accountsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

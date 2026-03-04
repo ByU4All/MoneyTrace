@@ -8,6 +8,8 @@ import '../data/database.dart';
 import '../providers/database_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../widgets/modal_sheet.dart';
+import 'history_screen.dart' show historyProvider;
+import 'accounts_screen.dart' show accountsProvider;
 
 /// Shows an edit bottom sheet for an existing event.
 Future<bool?> showEditEventSheet(BuildContext context, WidgetRef ref, Event event) {
@@ -317,6 +319,8 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
 
       // 5. Invalidate providers
       ref.invalidate(dashboardProvider);
+      ref.invalidate(historyProvider);
+      ref.invalidate(accountsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

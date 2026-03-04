@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../providers/dashboard_provider.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart';
@@ -24,10 +25,15 @@ class RecurringScreen extends ConsumerWidget {
     final pendingAsync = ref.watch(pendingProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Recurring')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddRecurringSheet(context, ref),
-        child: const Icon(Icons.add),
+      appBar: AppBar(
+        title: const Text('Recurring'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add_alarm),
+            tooltip: 'Add Recurring',
+            onPressed: () => _showAddRecurringSheet(context, ref),
+          ),
+        ],
       ),
       body: recurringAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -104,6 +110,7 @@ class RecurringScreen extends ConsumerWidget {
                         } else if (value == 'delete') {
                           await ref.read(recurringDaoProvider).deleteRecurring(item.id);
                           ref.invalidate(recurringProvider);
+                          ref.invalidate(dashboardProvider);
                         }
                       },
                     ),
@@ -239,6 +246,25 @@ class RecurringScreen extends ConsumerWidget {
 
                     final now = DateTime.now();
                     final startDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+                    final day = int.tryParse(dayCtrl.text) ?? 1;
+
+                    // Compute nextDueDate
+                    String nextDueDate;
+                    if (selectedFrequency == 'daily') {
+                      final tomorrow = now.add(const Duration(days: 1));
+                      nextDueDate = '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
+                    } else if (selectedFrequency == 'weekly') {
+                      final nextWeek = now.add(const Duration(days: 7));
+                      nextDueDate = '${nextWeek.year}-${nextWeek.month.toString().padLeft(2, '0')}-${nextWeek.day.toString().padLeft(2, '0')}';
+                    } else if (selectedFrequency == 'yearly') {
+                      final nextYear = DateTime(now.year + 1, now.month, day.clamp(1, 28));
+                      nextDueDate = '${nextYear.year}-${nextYear.month.toString().padLeft(2, '0')}-${nextYear.day.toString().padLeft(2, '0')}';
+                    } else {
+                      // monthly: next occurrence of dayOfMonth
+                      final dueThisMonth = DateTime(now.year, now.month, day.clamp(1, 28));
+                      final due = dueThisMonth.isAfter(now) ? dueThisMonth : DateTime(now.year, now.month + 1, day.clamp(1, 28));
+                      nextDueDate = '${due.year}-${due.month.toString().padLeft(2, '0')}-${due.day.toString().padLeft(2, '0')}';
+                    }
 
                     await ref.read(recurringDaoProvider).createRecurring(
                       name: name,
@@ -247,11 +273,13 @@ class RecurringScreen extends ConsumerWidget {
                       category: selectedCategory,
                       accountId: selectedAccountId,
                       frequency: selectedFrequency,
-                      dayOfMonth: int.tryParse(dayCtrl.text) ?? 1,
+                      dayOfMonth: day,
                       startDate: startDate,
                       isAutopay: isAutopay,
+                      nextDueDate: nextDueDate,
                     );
                     ref.invalidate(recurringProvider);
+                    ref.invalidate(dashboardProvider);
                     if (context.mounted) Navigator.pop(context);
                   },
                   child: const Text('Add'),
@@ -359,6 +387,7 @@ class RecurringScreen extends ConsumerWidget {
                       isAutopay: isAutopay,
                     );
                     ref.invalidate(recurringProvider);
+                    ref.invalidate(dashboardProvider);
                     if (context.mounted) Navigator.pop(context);
                   },
                   child: const Text('Save Changes'),
