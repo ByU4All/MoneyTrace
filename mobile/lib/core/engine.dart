@@ -135,6 +135,23 @@ Map<String, int> computeFriendBalances(Iterable<Map<String, dynamic>> events) {
   return balances;
 }
 
+/// Compute the balance impact of an event on an account.
+/// Returns negative for outflows, positive for inflows, 0 for no impact.
+int balanceImpact(String type, int amount) {
+  switch (type) {
+    case 'expense':
+    case 'settlement_paid':
+    case 'credit_card_payment':
+    case 'emi_payment':
+      return -amount;
+    case 'income':
+    case 'settlement_received':
+      return amount;
+    default:
+      return 0;
+  }
+}
+
 /// Category-wise spending. Only EXPENSE events count.
 Map<String, int> computeCategorySpend(
   Iterable<Map<String, dynamic>> events, {

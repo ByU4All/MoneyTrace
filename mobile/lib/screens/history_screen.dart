@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../providers/dashboard_provider.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart';
+import '../widgets/app_icons.dart';
+import 'edit_event_screen.dart';
 
 final historyProvider = FutureProvider.autoDispose<List<Event>>((ref) async {
   return ref.watch(eventDaoProvider).getEvents(limit: 200);
@@ -85,7 +88,7 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                   ),
                   ...dayEvents.map((event) => Card(
                     child: ListTile(
-                      leading: _eventIcon(event.type),
+                      leading: AppIcons.eventIcon(event.type, radius: 16),
                       title: Text(
                         event.description ?? _eventTypeName(event.type),
                         style: const TextStyle(fontSize: 14),
@@ -99,6 +102,13 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         colorize: true,
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                       ),
+                      onTap: () async {
+                        final edited = await showEditEventSheet(context, ref, event);
+                        if (edited == true) {
+                          ref.invalidate(historyProvider);
+                          ref.invalidate(dashboardProvider);
+                        }
+                      },
                       onLongPress: () => _confirmDelete(context, ref, event),
                     ),
                   )),
@@ -108,27 +118,6 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
           );
         },
       ),
-    );
-  }
-
-  Widget _eventIcon(String type) {
-    final icons = {
-      'expense': Icons.shopping_cart,
-      'liability': Icons.arrow_upward,
-      'receivable': Icons.arrow_downward,
-      'settlement_paid': Icons.payment,
-      'settlement_received': Icons.account_balance_wallet,
-      'budget_adjustment': Icons.tune,
-      'transfer': Icons.swap_horiz,
-      'income': Icons.attach_money,
-      'credit_card_payment': Icons.credit_card,
-      'emi_payment': Icons.calendar_today,
-    };
-
-    return CircleAvatar(
-      radius: 16,
-      backgroundColor: AppColors.surfaceLight,
-      child: Icon(icons[type] ?? Icons.receipt, color: AppColors.accent, size: 16),
     );
   }
 

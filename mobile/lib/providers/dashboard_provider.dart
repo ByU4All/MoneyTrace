@@ -11,6 +11,7 @@ class DashboardData {
   final int spent;
   final int liabilities;
   final int receivables;
+  final int unpaidCommitments;
   final Map<String, int> categorySpend;
   final List<Map<String, dynamic>> recentEvents;
   final int currentMonth;
@@ -24,6 +25,7 @@ class DashboardData {
     required this.spent,
     required this.liabilities,
     required this.receivables,
+    this.unpaidCommitments = 0,
     required this.categorySpend,
     required this.recentEvents,
     required this.currentMonth,
@@ -38,6 +40,7 @@ final dashboardProvider = FutureProvider.autoDispose<DashboardData>((ref) async 
   final eventDao = ref.watch(eventDaoProvider);
   final settingsDao = ref.watch(settingsDaoProvider);
   final friendDao = ref.watch(friendDaoProvider);
+  final recurringDao = ref.watch(recurringDaoProvider);
 
   final now = DateTime.now();
   final resetDay = await settingsDao.getBudgetResetDay();
@@ -54,6 +57,23 @@ final dashboardProvider = FutureProvider.autoDispose<DashboardData>((ref) async 
   final categorySpend = computeCategorySpend(events, month: month, year: year);
   final friendBalances = computeFriendBalances(allEvents);
 
+  // Compute unpaid recurring commitments for this month
+  final activeRecurring = await recurringDao.getRecurring();
+  final unpaidRecurring = <Map<String, dynamic>>[];
+  for (final rec in activeRecurring) {
+    if (rec.type != 'expense' && rec.type != 'emi_payment') continue;
+    // Check if due this month and not yet paid
+    final nextDue = rec.nextDueDate != null ? DateTime.tryParse(rec.nextDueDate!) : null;
+    if (nextDue != null && nextDue.month == month && nextDue.year == year) {
+      // Check if an event already exists for this recurring in this month
+      final hasEvent = events.any((e) => e['recurring_id'] == rec.id);
+      if (!hasEvent) {
+        unpaidRecurring.add({'type': rec.type, 'amount': rec.amount});
+      }
+    }
+  }
+  final unpaidCommitments = computeUnpaidCommitments(unpaidRecurring);
+
   // Build friend name map
   final friends = await friendDao.getFriends();
   final friendNames = <String, String>{
@@ -61,14 +81,15 @@ final dashboardProvider = FutureProvider.autoDispose<DashboardData>((ref) async 
   };
 
   // Recent events for quick list
-  final recentEvents = events.take(10).toList();
+  final recentEvents = events.take(5).toList();
 
   return DashboardData(
     baseBudget: baseBudget,
-    available: available,
+    available: available - unpaidCommitments,
     spent: spent,
     liabilities: liabilities,
     receivables: receivables,
+    unpaidCommitments: unpaidCommitments,
     categorySpend: categorySpend,
     recentEvents: recentEvents,
     currentMonth: month,

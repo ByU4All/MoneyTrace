@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/events.dart';
 import '../data/database.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart';
+import '../widgets/app_icons.dart';
 
 final accountsProvider = FutureProvider.autoDispose<List<Account>>((ref) async {
   return ref.watch(accountDaoProvider).getAccounts();
@@ -40,13 +40,7 @@ class AccountsScreen extends ConsumerWidget {
               final account = accounts[index];
               return Card(
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: AppColors.surfaceLight,
-                    child: Icon(
-                      _accountIcon(account.type),
-                      color: AppColors.accent,
-                    ),
-                  ),
+                  leading: AppIcons.accountIcon(account.type),
                   title: Text(account.name),
                   subtitle: Text(
                     '${_accountTypeName(account.type)}${account.institution != null ? ' \u2022 ${account.institution}' : ''}',
@@ -65,18 +59,6 @@ class AccountsScreen extends ConsumerWidget {
         },
       ),
     );
-  }
-
-  IconData _accountIcon(String type) {
-    switch (type) {
-      case 'savings': return Icons.savings;
-      case 'current': return Icons.account_balance;
-      case 'cash': return Icons.money;
-      case 'credit_card': return Icons.credit_card;
-      case 'upi_wallet': return Icons.phone_android;
-      case 'debit_card': return Icons.credit_card;
-      default: return Icons.account_balance_wallet;
-    }
   }
 
   String _accountTypeName(String type) {

@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/dashboard_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart';
+import '../widgets/app_icons.dart';
 import '../widgets/budget_card.dart';
+import 'visual_summary_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -38,6 +40,11 @@ class DashboardScreen extends ConsumerWidget {
                 spent: data.spent,
                 liabilities: data.liabilities,
                 receivables: data.receivables,
+                unpaidCommitments: data.unpaidCommitments,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => VisualSummaryScreen(data: data)),
+                ),
                 onLiabilitiesTap: () => _showBalanceSheet(
                   context,
                   title: 'You Owe',
@@ -128,10 +135,10 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ),
                 )
-              else
+              else ...[
                 ...data.recentEvents.map((event) => Card(
                       child: ListTile(
-                        leading: _eventIcon(event['type'] as String),
+                        leading: AppIcons.eventIcon(event['type'] as String),
                         title: Text(
                           event['description'] as String? ??
                               _eventTypeName(event['type'] as String),
@@ -148,6 +155,14 @@ class DashboardScreen extends ConsumerWidget {
                         ),
                       ),
                     )),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.pushNamed(context, '/history'),
+                    child: const Text('View All'),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -230,30 +245,6 @@ class DashboardScreen extends ConsumerWidget {
               }),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _eventIcon(String type) {
-    final icons = {
-      'expense': Icons.shopping_cart,
-      'liability': Icons.arrow_upward,
-      'receivable': Icons.arrow_downward,
-      'settlement_paid': Icons.payment,
-      'settlement_received': Icons.account_balance_wallet,
-      'budget_adjustment': Icons.tune,
-      'transfer': Icons.swap_horiz,
-      'income': Icons.attach_money,
-      'credit_card_payment': Icons.credit_card,
-      'emi_payment': Icons.calendar_today,
-    };
-
-    return CircleAvatar(
-      backgroundColor: AppColors.surfaceLight,
-      child: Icon(
-        icons[type] ?? Icons.receipt,
-        color: AppColors.accent,
-        size: 20,
       ),
     );
   }

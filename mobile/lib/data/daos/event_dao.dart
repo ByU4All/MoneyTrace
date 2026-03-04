@@ -88,6 +88,42 @@ class EventDao {
     }).toList();
   }
 
+  /// Get a single event by ID.
+  Future<Event?> getEventById(String id) async {
+    return (_db.select(_db.events)..where((e) => e.id.equals(id)))
+        .getSingleOrNull();
+  }
+
+  /// Update an existing event.
+  Future<bool> updateEvent(String id, {
+    String? type,
+    int? amount,
+    String? category,
+    String? description,
+    String? friendId,
+    String? accountId,
+    String? fromAccountId,
+    String? toAccountId,
+    String? eventDate,
+  }) async {
+    final companion = EventsCompanion(
+      type: type != null ? Value(type) : const Value.absent(),
+      amount: amount != null ? Value(amount) : const Value.absent(),
+      category: category != null ? Value(category) : const Value.absent(),
+      description: description != null ? Value(description) : const Value.absent(),
+      friendId: friendId != null ? Value(friendId) : const Value.absent(),
+      accountId: accountId != null ? Value(accountId) : const Value.absent(),
+      fromAccountId: fromAccountId != null ? Value(fromAccountId) : const Value.absent(),
+      toAccountId: toAccountId != null ? Value(toAccountId) : const Value.absent(),
+      eventDate: eventDate != null ? Value(eventDate) : const Value.absent(),
+    );
+
+    final count = await (_db.update(_db.events)
+          ..where((e) => e.id.equals(id)))
+        .write(companion);
+    return count > 0;
+  }
+
   /// Delete an event by ID.
   Future<bool> deleteEvent(String id) async {
     final count = await (_db.delete(_db.events)

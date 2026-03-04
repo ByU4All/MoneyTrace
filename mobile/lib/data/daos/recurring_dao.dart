@@ -75,6 +75,7 @@ class RecurringDao {
     int? dayOfMonth,
     String? endDate,
     bool? isActive,
+    bool? isAutopay,
     String? lastAppliedDate,
     String? nextDueDate,
   }) async {
@@ -86,6 +87,7 @@ class RecurringDao {
       dayOfMonth: dayOfMonth != null ? Value(dayOfMonth) : const Value.absent(),
       endDate: endDate != null ? Value(endDate) : const Value.absent(),
       isActive: isActive != null ? Value(isActive ? 1 : 0) : const Value.absent(),
+      isAutopay: isAutopay != null ? Value(isAutopay ? 1 : 0) : const Value.absent(),
       lastAppliedDate: lastAppliedDate != null ? Value(lastAppliedDate) : const Value.absent(),
       nextDueDate: nextDueDate != null ? Value(nextDueDate) : const Value.absent(),
     );

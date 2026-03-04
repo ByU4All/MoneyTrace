@@ -5,6 +5,7 @@ import '../core/events.dart';
 import '../providers/database_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../theme/colors.dart';
+import '../widgets/amount_display.dart' show formatAmount;
 
 /// Event creation screen with type tabs.
 class AddEventScreen extends ConsumerStatefulWidget {
@@ -78,6 +79,16 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
 
   bool get _needsTransferAccounts {
     return _currentEventType == EventType.transfer;
+  }
+
+  bool get _requiresAccount {
+    final t = _currentEventType;
+    return t == EventType.expense ||
+        t == EventType.income ||
+        t == EventType.settlementPaid ||
+        t == EventType.settlementReceived ||
+        t == EventType.creditCardPayment ||
+        t == EventType.emiPayment;
   }
 
   @override
@@ -242,15 +253,22 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                 future: ref.read(accountDaoProvider).getAccounts(),
                 builder: (context, snapshot) {
                   final accounts = snapshot.data ?? [];
+                  // Auto-select if required and only 1 account
+                  if (_requiresAccount && accounts.length == 1 && _selectedAccountId == null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) setState(() => _selectedAccountId = accounts.first.id);
+                    });
+                  }
                   return DropdownButtonFormField<String>(
                     value: _selectedAccountId,
-                    decoration: const InputDecoration(
-                      labelText: 'Account (optional)',
-                      prefixIcon: Icon(Icons.account_balance),
+                    decoration: InputDecoration(
+                      labelText: _requiresAccount ? 'Account (required)' : 'Account (optional)',
+                      prefixIcon: const Icon(Icons.account_balance),
                     ),
                     items: [
-                      const DropdownMenuItem(
-                          value: null, child: Text('No account')),
+                      if (!_requiresAccount)
+                        const DropdownMenuItem(
+                            value: null, child: Text('No account')),
                       ...accounts.map((a) => DropdownMenuItem(
                             value: a.id,
                             child: Text(a.name),
@@ -277,6 +295,19 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
               ),
             ),
 
+            // Complete a pending recurring (for expense/emi tabs)
+            if (_currentEventType == EventType.expense || _currentEventType == EventType.emiPayment) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.repeat, size: 16),
+                  label: const Text('Complete a Recurring?'),
+                  onPressed: () => _showPendingRecurring(),
+                ),
+              ),
+            ],
+
             const SizedBox(height: 24),
 
             // Submit
@@ -289,6 +320,52 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showPendingRecurring() async {
+    final recurringDao = ref.read(recurringDaoProvider);
+    final items = await recurringDao.getRecurring();
+    // Filter to manual (non-autopay) recurring matching current type
+    final typeStr = _currentEventType.value;
+    final pending = items.where((r) => r.type == typeStr && r.isAutopay != 1).toList();
+
+    if (!mounted) return;
+    if (pending.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No pending recurring transactions')),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => ListView(
+        shrinkWrap: true,
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Text('Select Recurring', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          ...pending.map((rec) => ListTile(
+            title: Text(rec.name),
+            subtitle: Text('${formatAmount(rec.amount)} \u2022 ${rec.frequency}'),
+            onTap: () {
+              Navigator.pop(ctx);
+              // Pre-fill form
+              setState(() {
+                _amountController.text = (rec.amount / 100).toString();
+                _descriptionController.text = rec.name;
+                _selectedCategory = rec.category;
+                _selectedAccountId = rec.accountId;
+              });
+            },
+          )),
+        ],
       ),
     );
   }
@@ -318,6 +395,22 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
     if (amountRupees == null || amountRupees <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Invalid amount')),
+      );
+      return;
+    }
+
+    // Validate required account
+    if (_requiresAccount && !_needsTransferAccounts && _selectedAccountId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select an account')),
+      );
+      return;
+    }
+
+    // Validate transfer accounts
+    if (_needsTransferAccounts && (_selectedFromAccountId == null || _selectedToAccountId == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select both From and To accounts')),
       );
       return;
     }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/recurring_processor.dart';
+import 'providers/database_provider.dart';
 import 'theme/app_theme.dart';
 import 'theme/colors.dart';
 import 'screens/dashboard_screen.dart';
@@ -41,15 +43,37 @@ class MoneyTraceApp extends StatelessWidget {
 }
 
 /// Main navigation shell with bottom nav bar.
-class MainShell extends StatefulWidget {
+class MainShell extends ConsumerStatefulWidget {
   const MainShell({super.key});
 
   @override
-  State<MainShell> createState() => _MainShellState();
+  ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class _MainShellState extends ConsumerState<MainShell> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Run autopay processing on startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _processAutopay();
+    });
+  }
+
+  Future<void> _processAutopay() async {
+    try {
+      final processor = RecurringProcessor(
+        ref.read(eventDaoProvider),
+        ref.read(accountDaoProvider),
+        ref.read(recurringDaoProvider),
+      );
+      await processor.processAutopay();
+    } catch (_) {
+      // Silently handle — autopay is best-effort on startup
+    }
+  }
 
   final _screens = const [
     DashboardScreen(),

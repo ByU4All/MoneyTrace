@@ -10,6 +10,7 @@ class BudgetCard extends StatelessWidget {
   final int spent;
   final int liabilities;
   final int receivables;
+  final int unpaidCommitments;
   final VoidCallback? onTap;
   final VoidCallback? onLiabilitiesTap;
   final VoidCallback? onReceivablesTap;
@@ -21,6 +22,7 @@ class BudgetCard extends StatelessWidget {
     required this.spent,
     this.liabilities = 0,
     this.receivables = 0,
+    this.unpaidCommitments = 0,
     this.onTap,
     this.onLiabilitiesTap,
     this.onReceivablesTap,
@@ -78,20 +80,34 @@ class BudgetCard extends StatelessWidget {
                     amount: spent,
                     color: AppColors.danger,
                   ),
-                  GestureDetector(
+                  if (unpaidCommitments > 0)
+                    _StatItem(
+                      label: 'Reserved',
+                      amount: unpaidCommitments,
+                      color: AppColors.info,
+                    ),
+                  InkWell(
                     onTap: onLiabilitiesTap,
-                    child: _StatItem(
-                      label: 'You Owe',
-                      amount: liabilities,
-                      color: AppColors.warning,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: _StatItem(
+                        label: 'You Owe',
+                        amount: liabilities,
+                        color: AppColors.warning,
+                      ),
                     ),
                   ),
-                  GestureDetector(
+                  InkWell(
                     onTap: onReceivablesTap,
-                    child: _StatItem(
-                      label: 'Owed to You',
-                      amount: receivables,
-                      color: AppColors.success,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: _StatItem(
+                        label: 'Owed to You',
+                        amount: receivables,
+                        color: AppColors.success,
+                      ),
                     ),
                   ),
                 ],
