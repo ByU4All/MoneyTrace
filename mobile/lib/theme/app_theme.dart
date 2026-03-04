@@ -105,16 +105,17 @@ class AppTheme {
           ),
         ),
 
-        // Inputs — outline border, no fill
+        // Inputs — filled with subtle background + outline border
         inputDecorationTheme: InputDecorationTheme(
-          filled: false,
+          filled: true,
+          fillColor: AppColors.surfaceLight,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -123,6 +124,54 @@ class AppTheme {
           labelStyle: const TextStyle(color: AppColors.textSecondary),
           hintStyle: const TextStyle(color: AppColors.textMuted),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+
+        // Dropdown menu (DropdownButtonFormField popup)
+        canvasColor: AppColors.primaryLight,
+
+        // Popup menus
+        popupMenuTheme: PopupMenuThemeData(
+          color: AppColors.primaryLight,
+          elevation: 4,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          ),
+        ),
+
+        // DropdownMenu (M3 style)
+        dropdownMenuTheme: DropdownMenuThemeData(
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: AppColors.surfaceLight,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+          ),
+          menuStyle: MenuStyle(
+            backgroundColor: const WidgetStatePropertyAll(AppColors.primaryLight),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+              ),
+            ),
+            elevation: const WidgetStatePropertyAll(4),
+          ),
+        ),
+
+        // Menu (for MenuAnchor / M3 menus)
+        menuTheme: MenuThemeData(
+          style: MenuStyle(
+            backgroundColor: const WidgetStatePropertyAll(AppColors.primaryLight),
+            shape: WidgetStatePropertyAll(
+              RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+              ),
+            ),
+          ),
         ),
 
         // FAB — flat
@@ -153,18 +202,36 @@ class AppTheme {
 
         // Dialog
         dialogTheme: DialogThemeData(
-          backgroundColor: AppColors.surface,
+          backgroundColor: AppColors.surfaceLight,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
           ),
         ),
 
-        // Bottom Sheet
-        bottomSheetTheme: const BottomSheetThemeData(
+        // Bottom Sheet — slightly lighter so inputs inside have contrast
+        bottomSheetTheme: BottomSheetThemeData(
           backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
           ),
+        ),
+
+        // Switch
+        switchTheme: SwitchThemeData(
+          thumbColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return AppColors.accent;
+            return AppColors.textMuted;
+          }),
+          trackColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return AppColors.accent.withAlpha(80);
+            return AppColors.surfaceLight;
+          }),
+          trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return Colors.transparent;
+            return Colors.white.withValues(alpha: 0.12);
+          }),
         ),
 
         // Snackbar

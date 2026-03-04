@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../data/database.dart';
 import '../providers/database_provider.dart';
@@ -294,20 +296,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Future<void> _exportData() async {
-    if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Export not supported on web')),
-      );
-      return;
-    }
     try {
       final dataDao = ref.read(dataDaoProvider);
       final data = await dataDao.exportAll();
       final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
 
-      // On native platforms, use share_plus + path_provider dynamically
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export data: ${jsonStr.length} bytes (native share not available in web mode)')),
+      final dir = await getTemporaryDirectory();
+      final date = DateTime.now().toIso8601String().split('T')[0];
+      final file = File('${dir.path}/moneytrace_backup_$date.json');
+      await file.writeAsString(jsonStr);
+
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'MoneyTrace backup $date',
       );
     } catch (e) {
       if (mounted) {
@@ -326,9 +327,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         withData: true,
       );
 
-      if (result == null || result.files.single.bytes == null) return;
+      if (result == null) return;
+      final file = result.files.single;
 
-      final jsonStr = utf8.decode(result.files.single.bytes!);
+      // withData may return bytes, or we fall back to reading from path
+      String jsonStr;
+      if (file.bytes != null) {
+        jsonStr = utf8.decode(file.bytes!);
+      } else if (file.path != null) {
+        jsonStr = await File(file.path!).readAsString();
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not read file')),
+          );
+        }
+        return;
+      }
+
       final data = json.decode(jsonStr) as Map<String, dynamic>;
 
       // Confirm
