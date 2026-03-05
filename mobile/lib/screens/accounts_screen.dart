@@ -83,6 +83,9 @@ class AccountsScreen extends ConsumerWidget {
     final nameController = TextEditingController();
     final institutionController = TextEditingController();
     final balanceController = TextEditingController(text: '0');
+    final creditLimitCtrl = TextEditingController();
+    final billingDayCtrl = TextEditingController();
+    final dueDayCtrl = TextEditingController();
     String selectedType = 'savings';
 
     showModalBottomSheet(
@@ -92,7 +95,7 @@ class AccountsScreen extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => Padding(
+      builder: (context) => SingleChildScrollView(
         padding: EdgeInsets.only(
           left: 16, right: 16, top: 16,
           bottom: MediaQuery.of(context).viewInsets.bottom + 16,
@@ -133,12 +136,44 @@ class AccountsScreen extends ConsumerWidget {
                 decoration: const InputDecoration(labelText: 'Initial Balance (\u20B9)'),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
+              if (selectedType == 'credit_card') ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: creditLimitCtrl,
+                  decoration: const InputDecoration(labelText: 'Credit Limit (\u20B9)'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: billingDayCtrl,
+                        decoration: const InputDecoration(labelText: 'Billing Day'),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: dueDayCtrl,
+                        decoration: const InputDecoration(labelText: 'Due Day'),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () async {
                   if (nameController.text.trim().isEmpty) return;
                   final balanceRupees = double.tryParse(balanceController.text) ?? 0;
                   final balancePaise = (balanceRupees * 100).round();
+                  final isCreditCard = selectedType == 'credit_card';
+                  final creditLimit = isCreditCard ? (int.tryParse(creditLimitCtrl.text) ?? 0) * 100 : null;
+                  final billingDay = isCreditCard ? int.tryParse(billingDayCtrl.text) : null;
+                  final dueDay = isCreditCard ? int.tryParse(dueDayCtrl.text) : null;
                   await ref.read(accountDaoProvider).createAccount(
                     name: nameController.text.trim(),
                     type: selectedType,
@@ -146,6 +181,10 @@ class AccountsScreen extends ConsumerWidget {
                         ? institutionController.text.trim()
                         : null,
                     trackedBalance: balancePaise,
+                    isCredit: isCreditCard,
+                    creditLimit: creditLimit,
+                    billingDay: billingDay,
+                    dueDay: dueDay,
                   );
                   ref.invalidate(accountsProvider);
                   ref.invalidate(dashboardProvider);

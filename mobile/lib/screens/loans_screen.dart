@@ -45,8 +45,9 @@ class LoansScreen extends ConsumerWidget {
             itemCount: loans.length,
             itemBuilder: (context, index) {
               final loan = loans[index];
+              final remaining = loan.tenureMonths - loan.paymentsMade;
               final progress = (loan.paymentsMade / loan.tenureMonths * 100).clamp(0, 100).toDouble();
-              final outstanding = (loan.tenureMonths - loan.paymentsMade) * loan.emiAmount;
+              final outstanding = remaining * loan.emiAmount;
 
               return Card(
                 child: InkWell(
@@ -70,7 +71,7 @@ class LoansScreen extends ConsumerWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('${loan.paymentsMade}/${loan.tenureMonths} EMIs', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                            Text('$remaining EMIs remaining', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                             Text('${progress.round()}%', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                           ],
                         ),
@@ -114,7 +115,9 @@ class LoansScreen extends ConsumerWidget {
     final emiCtrl = TextEditingController();
     final emiDayCtrl = TextEditingController(text: '5');
     final lenderCtrl = TextEditingController();
+    final paymentsMadeCtrl = TextEditingController(text: '0');
     String selectedType = 'personal_loan';
+    DateTime loanStartDate = DateTime.now();
 
     showModalBottomSheet(
       context: context,
@@ -179,6 +182,30 @@ class LoansScreen extends ConsumerWidget {
                     Expanded(child: TextField(controller: lenderCtrl, decoration: const InputDecoration(labelText: 'Lender (optional)'))),
                   ],
                 ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: loanStartDate,
+                      firstDate: DateTime(2015),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) setState(() => loanStartDate = picked);
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Loan Start Date'),
+                    child: Text(
+                      '${loanStartDate.year}-${loanStartDate.month.toString().padLeft(2, '0')}-${loanStartDate.day.toString().padLeft(2, '0')}',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: paymentsMadeCtrl,
+                  decoration: const InputDecoration(labelText: 'EMIs Already Paid'),
+                  keyboardType: TextInputType.number,
+                ),
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: () async {
@@ -189,6 +216,8 @@ class LoansScreen extends ConsumerWidget {
                     final emi = double.tryParse(emiCtrl.text);
                     final emiDay = int.tryParse(emiDayCtrl.text) ?? 5;
 
+                    final paymentsMade = int.tryParse(paymentsMadeCtrl.text) ?? 0;
+
                     if (name.isEmpty || principal == null || rate == null || tenure == null || emi == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Please fill all required fields')),
@@ -196,8 +225,14 @@ class LoansScreen extends ConsumerWidget {
                       return;
                     }
 
-                    final now = DateTime.now();
-                    final startDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+                    if (paymentsMade >= tenure) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('EMIs paid must be less than tenure')),
+                      );
+                      return;
+                    }
+
+                    final startDate = '${loanStartDate.year}-${loanStartDate.month.toString().padLeft(2, '0')}-${loanStartDate.day.toString().padLeft(2, '0')}';
                     final emiAmountPaise = (emi * 100).round();
 
                     final loanId = await ref.read(loanDaoProvider).createLoan(
@@ -210,11 +245,14 @@ class LoansScreen extends ConsumerWidget {
                       startDate: startDate,
                       emiDay: emiDay,
                       lender: lenderCtrl.text.trim().isNotEmpty ? lenderCtrl.text.trim() : null,
+                      paymentsMade: paymentsMade,
                     );
 
-                    // Auto-create linked recurring EMI
-                    final endMonth = now.month + tenure;
-                    final endDate = DateTime(now.year + (endMonth - 1) ~/ 12, (endMonth - 1) % 12 + 1, now.day);
+                    // Auto-create linked recurring EMI for remaining months
+                    final now = DateTime.now();
+                    final remainingMonths = tenure - paymentsMade;
+                    final endMonth = now.month + remainingMonths;
+                    final endDate = DateTime(now.year + (endMonth - 1) ~/ 12, (endMonth - 1) % 12 + 1, emiDay.clamp(1, 28));
                     final endDateStr = '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}';
 
                     // Compute nextDueDate for EMI
@@ -279,7 +317,7 @@ class LoansScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${loan.paymentsMade} of ${loan.tenureMonths} EMIs paid', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  Text('${loan.tenureMonths - loan.paymentsMade} of ${loan.tenureMonths} EMIs remaining', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   Text('${progress.round()}%', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                 ],
               ),
@@ -292,50 +330,218 @@ class LoansScreen extends ConsumerWidget {
               _detailRow('EMI Day', '${loan.emiDay}th'),
               if (loan.lender != null) _detailRow('Lender', loan.lender!),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Close Loan?'),
-                            content: const Text('Mark this loan as inactive?'),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-                                child: const Text('Close'),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true) {
-                          await ref.read(loanDaoProvider).closeLoan(loan.id);
-
-                          // Deactivate linked recurring EMI
-                          final recurrings = await ref.read(recurringDaoProvider).getRecurring();
-                          for (final r in recurrings) {
-                            if (r.linkedLoanId == loan.id) {
-                              await ref.read(recurringDaoProvider).updateRecurring(r.id, isActive: false);
-                            }
-                          }
-
-                          ref.invalidate(loansProvider);
-                          ref.invalidate(dashboardProvider);
-                          ref.invalidate(recurringProvider);
-                          if (context.mounted) Navigator.pop(context);
-                        }
-                      },
-                      icon: const Icon(Icons.close, color: AppColors.danger),
-                      label: const Text('Close Loan', style: TextStyle(color: AppColors.danger)),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showEditLoanSheet(context, ref, loan);
+                },
+                icon: const Icon(Icons.edit),
+                label: const Text('Edit Loan'),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Close Loan?'),
+                      content: const Text('Mark this loan as inactive?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+                          child: const Text('Close'),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  );
+                  if (confirm == true) {
+                    await ref.read(loanDaoProvider).closeLoan(loan.id);
+
+                    // Deactivate linked recurring EMI
+                    final recurrings = await ref.read(recurringDaoProvider).getRecurring();
+                    for (final r in recurrings) {
+                      if (r.linkedLoanId == loan.id) {
+                        await ref.read(recurringDaoProvider).updateRecurring(r.id, isActive: false);
+                      }
+                    }
+
+                    ref.invalidate(loansProvider);
+                    ref.invalidate(dashboardProvider);
+                    ref.invalidate(recurringProvider);
+                    if (context.mounted) Navigator.pop(context);
+                  }
+                },
+                icon: const Icon(Icons.close, color: AppColors.danger),
+                label: const Text('Close Loan', style: TextStyle(color: AppColors.danger)),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEditLoanSheet(BuildContext context, WidgetRef ref, Loan loan) {
+    final nameCtrl = TextEditingController(text: loan.name);
+    final principalCtrl = TextEditingController(text: (loan.principal / 100).toStringAsFixed(0));
+    final rateCtrl = TextEditingController(text: loan.interestRate.toString());
+    final tenureCtrl = TextEditingController(text: loan.tenureMonths.toString());
+    final emiCtrl = TextEditingController(text: (loan.emiAmount / 100).toStringAsFixed(0));
+    final emiDayCtrl = TextEditingController(text: loan.emiDay.toString());
+    final lenderCtrl = TextEditingController(text: loan.lender ?? '');
+    final paymentsMadeCtrl = TextEditingController(text: loan.paymentsMade.toString());
+    final startParts = loan.startDate.split('-');
+    DateTime loanStartDate = DateTime(
+      int.parse(startParts[0]),
+      int.parse(startParts[1]),
+      int.parse(startParts[2]),
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.85,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          padding: EdgeInsets.only(
+            left: 16, right: 16, top: 16,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+          ),
+          child: StatefulBuilder(
+            builder: (context, setState) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Edit Loan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 16),
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Loan Name')),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: TextField(controller: principalCtrl, decoration: const InputDecoration(labelText: 'Principal (\u20B9)'), keyboardType: TextInputType.number)),
+                    const SizedBox(width: 12),
+                    Expanded(child: TextField(controller: rateCtrl, decoration: const InputDecoration(labelText: 'Interest (%/yr)'), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: TextField(controller: tenureCtrl, decoration: const InputDecoration(labelText: 'Tenure (months)'), keyboardType: TextInputType.number)),
+                    const SizedBox(width: 12),
+                    Expanded(child: TextField(controller: emiCtrl, decoration: const InputDecoration(labelText: 'EMI (\u20B9)'), keyboardType: TextInputType.number)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: TextField(controller: emiDayCtrl, decoration: const InputDecoration(labelText: 'EMI Day'), keyboardType: TextInputType.number)),
+                    const SizedBox(width: 12),
+                    Expanded(child: TextField(controller: lenderCtrl, decoration: const InputDecoration(labelText: 'Lender (optional)'))),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: loanStartDate,
+                      firstDate: DateTime(2015),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) setState(() => loanStartDate = picked);
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Loan Start Date'),
+                    child: Text(
+                      '${loanStartDate.year}-${loanStartDate.month.toString().padLeft(2, '0')}-${loanStartDate.day.toString().padLeft(2, '0')}',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: paymentsMadeCtrl,
+                  decoration: const InputDecoration(labelText: 'EMIs Already Paid'),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () async {
+                    final name = nameCtrl.text.trim();
+                    final principal = double.tryParse(principalCtrl.text);
+                    final rate = double.tryParse(rateCtrl.text);
+                    final tenure = int.tryParse(tenureCtrl.text);
+                    final emi = double.tryParse(emiCtrl.text);
+                    final emiDay = int.tryParse(emiDayCtrl.text) ?? loan.emiDay;
+                    final paymentsMade = int.tryParse(paymentsMadeCtrl.text) ?? loan.paymentsMade;
+
+                    if (name.isEmpty || principal == null || rate == null || tenure == null || emi == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please fill all required fields')),
+                      );
+                      return;
+                    }
+
+                    if (paymentsMade >= tenure) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('EMIs paid must be less than tenure')),
+                      );
+                      return;
+                    }
+
+                    final startDate = '${loanStartDate.year}-${loanStartDate.month.toString().padLeft(2, '0')}-${loanStartDate.day.toString().padLeft(2, '0')}';
+                    final emiAmountPaise = (emi * 100).round();
+
+                    await ref.read(loanDaoProvider).updateLoan(
+                      loan.id,
+                      name: name,
+                      principal: (principal * 100).round(),
+                      interestRate: rate,
+                      tenureMonths: tenure,
+                      emiAmount: emiAmountPaise,
+                      startDate: startDate,
+                      emiDay: emiDay,
+                      paymentsMade: paymentsMade,
+                      lender: lenderCtrl.text.trim().isNotEmpty ? lenderCtrl.text.trim() : null,
+                    );
+
+                    // Update linked recurring EMI if EMI amount/day changed
+                    final recurrings = await ref.read(recurringDaoProvider).getRecurring();
+                    for (final r in recurrings) {
+                      if (r.linkedLoanId == loan.id && r.isActive == 1) {
+                        final now = DateTime.now();
+                        final remainingMonths = tenure - paymentsMade;
+                        final endMonth = now.month + remainingMonths;
+                        final endDate = DateTime(now.year + (endMonth - 1) ~/ 12, (endMonth - 1) % 12 + 1, emiDay.clamp(1, 28));
+                        final endDateStr = '${endDate.year}-${endDate.month.toString().padLeft(2, '0')}-${endDate.day.toString().padLeft(2, '0')}';
+
+                        await ref.read(recurringDaoProvider).updateRecurring(
+                          r.id,
+                          name: '$name EMI',
+                          amount: emiAmountPaise,
+                          dayOfMonth: emiDay,
+                          endDate: endDateStr,
+                        );
+                      }
+                    }
+
+                    ref.invalidate(loansProvider);
+                    ref.invalidate(dashboardProvider);
+                    ref.invalidate(recurringProvider);
+                    if (context.mounted) Navigator.pop(context);
+                  },
+                  child: const Text('Save Changes'),
+                ),
+              ],
+            ),
           ),
         ),
       ),

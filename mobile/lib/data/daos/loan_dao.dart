@@ -23,6 +23,7 @@ class LoanDao {
     String? creditCardId,
     String? lender,
     String? purpose,
+    int paymentsMade = 0,
   }) async {
     final id = _uuid.v4();
     final now = DateTime.now().toIso8601String().split('T')[0];
@@ -42,6 +43,7 @@ class LoanDao {
       creditCardId: Value(creditCardId),
       lender: Value(lender),
       purpose: Value(purpose),
+      paymentsMade: Value(paymentsMade),
       createdAt: now,
     ));
 
@@ -64,8 +66,13 @@ class LoanDao {
 
   Future<bool> updateLoan(String id, {
     String? name,
+    int? principal,
+    double? interestRate,
+    int? tenureMonths,
     int? emiAmount,
+    String? startDate,
     int? emiDay,
+    int? paymentsMade,
     String? paymentAccountId,
     String? paymentType,
     String? lender,
@@ -74,8 +81,13 @@ class LoanDao {
   }) async {
     final companion = LoansCompanion(
       name: name != null ? Value(name) : const Value.absent(),
+      principal: principal != null ? Value(principal) : const Value.absent(),
+      interestRate: interestRate != null ? Value(interestRate) : const Value.absent(),
+      tenureMonths: tenureMonths != null ? Value(tenureMonths) : const Value.absent(),
       emiAmount: emiAmount != null ? Value(emiAmount) : const Value.absent(),
+      startDate: startDate != null ? Value(startDate) : const Value.absent(),
       emiDay: emiDay != null ? Value(emiDay) : const Value.absent(),
+      paymentsMade: paymentsMade != null ? Value(paymentsMade) : const Value.absent(),
       paymentAccountId: paymentAccountId != null ? Value(paymentAccountId) : const Value.absent(),
       paymentType: paymentType != null ? Value(paymentType) : const Value.absent(),
       lender: lender != null ? Value(lender) : const Value.absent(),

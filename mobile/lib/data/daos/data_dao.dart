@@ -9,6 +9,21 @@ import 'settings_dao.dart';
 /// Export/import/clear operations.
 /// Produces JSON identical to the web app for cross-platform compatibility.
 class DataDao {
+  static bool _toBool(dynamic v) {
+    if (v is bool) return v;
+    if (v is int) return v != 0;
+    if (v is String) return v == 'true' || v == '1';
+    return false;
+  }
+
+  static int _toInt(dynamic v, [int fallback = 0]) {
+    if (v == null) return fallback;
+    if (v is int) return v;
+    if (v is double) return v.round();
+    if (v is String) return int.tryParse(v) ?? fallback;
+    return fallback;
+  }
+
   final AppDatabase _db;
   final SettingsDao _settings;
   const DataDao(this._db, this._settings);
@@ -171,12 +186,12 @@ class DataDao {
       // Import settings
       if (data['settings'] != null) {
         final s = data['settings'] as Map<String, dynamic>;
-        if (s['base_budget'] != null) await _settings.setBaseBudget(s['base_budget'] as int);
-        if (s['budget_reset_day'] != null) await _settings.setBudgetResetDay(s['budget_reset_day'] as int);
-        if (s['budget_reset_enabled'] != null) await _settings.setBudgetResetEnabled(s['budget_reset_enabled'] as bool);
-        if (s['carry_over_enabled'] != null) await _settings.setCarryOverEnabled(s['carry_over_enabled'] as bool);
-        if (s['carry_over_cap'] != null) await _settings.setCarryOverCap(s['carry_over_cap'] as int);
-        if (s['carry_over_negative'] != null) await _settings.setCarryOverNegative(s['carry_over_negative'] as bool);
+        if (s['base_budget'] != null) await _settings.setBaseBudget((s['base_budget'] as num).toInt());
+        if (s['budget_reset_day'] != null) await _settings.setBudgetResetDay((s['budget_reset_day'] as num).toInt());
+        if (s['budget_reset_enabled'] != null) await _settings.setBudgetResetEnabled(_toBool(s['budget_reset_enabled']));
+        if (s['carry_over_enabled'] != null) await _settings.setCarryOverEnabled(_toBool(s['carry_over_enabled']));
+        if (s['carry_over_cap'] != null) await _settings.setCarryOverCap((s['carry_over_cap'] as num).toInt());
+        if (s['carry_over_negative'] != null) await _settings.setCarryOverNegative(_toBool(s['carry_over_negative']));
       }
 
       // Import categories
@@ -184,7 +199,7 @@ class DataDao {
         await _db.into(_db.categories).insert(CategoriesCompanion.insert(
           id: cat['id'] as String,
           name: cat['name'] as String,
-          isDefault: Value((cat['is_default'] as int?) ?? 0),
+          isDefault: Value(_toInt(cat['is_default'])),
         ));
       }
 
@@ -208,14 +223,14 @@ class DataDao {
           last4Digits: Value(a['last_4_digits'] as String?),
           color: Value(a['color'] as String?),
           icon: Value(a['icon'] as String?),
-          trackedBalance: Value((a['tracked_balance'] as int?) ?? 0),
-          currentBalance: Value((a['current_balance'] as int?) ?? 0),
-          isCredit: Value((a['is_credit'] as int?) ?? 0),
-          creditLimit: Value(a['credit_limit'] as int?),
-          billingDay: Value(a['billing_day'] as int?),
-          dueDay: Value(a['due_day'] as int?),
-          isActive: Value((a['is_active'] as int?) ?? 1),
-          isDefault: Value((a['is_default'] as int?) ?? 0),
+          trackedBalance: Value(_toInt(a['tracked_balance'])),
+          currentBalance: Value(_toInt(a['current_balance'])),
+          isCredit: Value(_toInt(a['is_credit'])),
+          creditLimit: Value(a['credit_limit'] != null ? _toInt(a['credit_limit']) : null),
+          billingDay: Value(a['billing_day'] != null ? _toInt(a['billing_day']) : null),
+          dueDay: Value(a['due_day'] != null ? _toInt(a['due_day']) : null),
+          isActive: Value(_toInt(a['is_active'], 1)),
+          isDefault: Value(_toInt(a['is_default'])),
           createdAt: a['created_at'] as String,
         ));
       }
@@ -226,20 +241,20 @@ class DataDao {
           id: l['id'] as String,
           name: l['name'] as String,
           type: l['type'] as String,
-          principal: l['principal'] as int,
+          principal: _toInt(l['principal']),
           interestRate: (l['interest_rate'] as num).toDouble(),
-          tenureMonths: l['tenure_months'] as int,
-          emiAmount: l['emi_amount'] as int,
+          tenureMonths: _toInt(l['tenure_months']),
+          emiAmount: _toInt(l['emi_amount']),
           startDate: l['start_date'] as String,
-          emiDay: l['emi_day'] as int,
-          paymentsMade: Value((l['payments_made'] as int?) ?? 0),
+          emiDay: _toInt(l['emi_day']),
+          paymentsMade: Value(_toInt(l['payments_made'])),
           paymentAccountId: Value(l['payment_account_id'] as String?),
           paymentType: Value((l['payment_type'] as String?) ?? 'manual'),
           creditCardId: Value(l['credit_card_id'] as String?),
           lender: Value(l['lender'] as String?),
           purpose: Value(l['purpose'] as String?),
-          isActive: Value((l['is_active'] as int?) ?? 1),
-          foreclosureAmount: Value(l['foreclosure_amount'] as int?),
+          isActive: Value(_toInt(l['is_active'], 1)),
+          foreclosureAmount: Value(l['foreclosure_amount'] != null ? _toInt(l['foreclosure_amount']) : null),
           createdAt: l['created_at'] as String,
         ));
       }
@@ -251,18 +266,18 @@ class DataDao {
             id: r['id'] as String,
             name: r['name'] as String,
             type: r['type'] as String,
-            amount: r['amount'] as int,
+            amount: _toInt(r['amount']),
             category: Value(r['category'] as String?),
             accountId: Value(r['account_id'] as String?),
             frequency: r['frequency'] as String,
-            dayOfMonth: Value(r['day_of_month'] as int?),
-            dayOfWeek: Value(r['day_of_week'] as int?),
+            dayOfMonth: Value(r['day_of_month'] != null ? _toInt(r['day_of_month']) : null),
+            dayOfWeek: Value(r['day_of_week'] != null ? _toInt(r['day_of_week']) : null),
             startDate: r['start_date'] as String,
             endDate: Value(r['end_date'] as String?),
-            requiresVerification: Value((r['requires_verification'] as int?) ?? 1),
-            autoApply: Value((r['auto_apply'] as int?) ?? 0),
-            isAutopay: Value((r['is_autopay'] as int?) ?? 0),
-            isActive: Value((r['is_active'] as int?) ?? 1),
+            requiresVerification: Value(_toInt(r['requires_verification'], 1)),
+            autoApply: Value(_toInt(r['auto_apply'])),
+            isAutopay: Value(_toInt(r['is_autopay'])),
+            isActive: Value(_toInt(r['is_active'], 1)),
             lastAppliedDate: Value(r['last_applied_date'] as String?),
             nextDueDate: Value(r['next_due_date'] as String?),
             linkedLoanId: Value(r['linked_loan_id'] as String?),
@@ -279,11 +294,11 @@ class DataDao {
             cardAccountId: s['card_account_id'] as String,
             statementDate: s['statement_date'] as String,
             dueDate: s['due_date'] as String,
-            statementAmount: s['statement_amount'] as int,
-            minimumDue: s['minimum_due'] as int,
-            paidAmount: Value((s['paid_amount'] as int?) ?? 0),
+            statementAmount: _toInt(s['statement_amount']),
+            minimumDue: _toInt(s['minimum_due']),
+            paidAmount: Value(_toInt(s['paid_amount'])),
             paidDate: Value(s['paid_date'] as String?),
-            isFullyPaid: Value((s['is_fully_paid'] as int?) ?? 0),
+            isFullyPaid: Value(_toInt(s['is_fully_paid'])),
             createdAt: s['created_at'] as String,
           ),
         );
@@ -295,8 +310,8 @@ class DataDao {
           LoanEmiScheduleCompanion.insert(
             id: sched['id'] as String,
             loanId: sched['loan_id'] as String,
-            monthNumber: sched['month_number'] as int,
-            emiAmount: sched['emi_amount'] as int,
+            monthNumber: _toInt(sched['month_number']),
+            emiAmount: _toInt(sched['emi_amount']),
             createdAt: sched['created_at'] as String,
           ),
         );
@@ -307,7 +322,7 @@ class DataDao {
         await _db.into(_db.events).insert(EventsCompanion.insert(
           id: e['id'] as String,
           type: e['type'] as String,
-          amount: e['amount'] as int,
+          amount: _toInt(e['amount']),
           category: Value(e['category'] as String?),
           description: Value(e['description'] as String?),
           friendId: Value(e['friend_id'] as String?),
@@ -325,13 +340,13 @@ class DataDao {
       for (final m in (data['month_records'] as List? ?? [])) {
         await _db.into(_db.monthRecords).insert(MonthRecordsCompanion.insert(
           id: m['id'] as String,
-          year: m['year'] as int,
-          month: m['month'] as int,
-          baseBudget: m['base_budget'] as int,
-          carryOverAmount: Value((m['carry_over_amount'] as int?) ?? 0),
-          totalBudget: m['total_budget'] as int,
-          totalSpent: Value((m['total_spent'] as int?) ?? 0),
-          endingBalance: Value((m['ending_balance'] as int?) ?? 0),
+          year: _toInt(m['year']),
+          month: _toInt(m['month']),
+          baseBudget: _toInt(m['base_budget']),
+          carryOverAmount: Value(_toInt(m['carry_over_amount'])),
+          totalBudget: _toInt(m['total_budget']),
+          totalSpent: Value(_toInt(m['total_spent'])),
+          endingBalance: Value(_toInt(m['ending_balance'])),
           createdAt: m['created_at'] as String,
         ));
       }

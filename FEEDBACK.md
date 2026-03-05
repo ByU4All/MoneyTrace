@@ -35,6 +35,27 @@
 
 ---
 
+## v0.1.4 Post-Release — Reported 2026-03-05
+
+| # | Issue | Severity | Status |
+|---|-------|----------|--------|
+| 1 | Loan card and detail view show "Completed EMIs" — should show "Remaining EMIs" instead | Medium | Open |
+| 2 | [Mobile] Export/backup uses share sheet — no way to save to a local folder; needs dedicated app backup directory | High | Open |
+
+### Details
+
+**#1 — Show Remaining EMIs on Loan Card and Detail View**
+Users care about how many EMIs are left, not how many they've already paid. Replace the "Completed EMIs" display on both the loan list card and the loan detail screen with "Remaining EMIs" (i.e., `totalEmis - completedEmis`). If remaining reaches 0, show a "Fully paid" or equivalent indicator.
+
+**#2 — Dedicated App Backup Directory for Export/Import**
+Currently export/backup uses a share mechanism (e.g., share_plus) that opens the Android share sheet — users can send to Drive, WhatsApp, etc. but cannot save directly to a local folder they can browse. Required changes:
+- Create a dedicated app backup directory (e.g., `Android/data/com.moneytrace.app/files/backups/` or equivalent accessible path) where all exports are saved automatically
+- When triggering export, write the backup file to this directory first, then optionally offer the share sheet as a secondary action
+- When importing, default the file picker to this backup directory; user can still navigate elsewhere if needed
+- Directory should be persistent and survive app updates (not cache)
+
+---
+
 ## Template for Future Versions
 
 <!--

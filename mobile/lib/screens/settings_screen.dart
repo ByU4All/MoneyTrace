@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../data/database.dart';
 import '../providers/database_provider.dart';
@@ -295,21 +294,35 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     }
   }
 
+  Future<Directory> _getBackupDir() async {
+    final extDir = await getExternalStorageDirectory();
+    final backupDir = Directory('${extDir!.path}/backups');
+    if (!await backupDir.exists()) {
+      await backupDir.create(recursive: true);
+    }
+    return backupDir;
+  }
+
   Future<void> _exportData() async {
     try {
       final dataDao = ref.read(dataDaoProvider);
       final data = await dataDao.exportAll();
       final jsonStr = const JsonEncoder.withIndent('  ').convert(data);
 
-      final dir = await getTemporaryDirectory();
+      final backupDir = await _getBackupDir();
       final date = DateTime.now().toIso8601String().split('T')[0];
-      final file = File('${dir.path}/moneytrace_backup_$date.json');
+      final time = DateTime.now().toIso8601String().split('T')[1].replaceAll(':', '-').split('.')[0];
+      final file = File('${backupDir.path}/moneytrace_backup_${date}_$time.json');
       await file.writeAsString(jsonStr);
 
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        text: 'MoneyTrace backup $date',
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Backup saved to ${file.path}'),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -320,34 +333,89 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   Future<void> _importData() async {
+    final backupDir = await _getBackupDir();
+    final backupFiles = backupDir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.json'))
+        .toList()
+      ..sort((a, b) => b.path.compareTo(a.path)); // newest first
+
+    if (!mounted) return;
+
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Import Backup', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 16),
+            if (backupFiles.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text('No backups found', style: TextStyle(color: AppColors.textMuted)),
+              )
+            else
+              ...backupFiles.take(10).map((f) {
+                final name = f.path.split('/').last;
+                return ListTile(
+                  leading: const Icon(Icons.description_outlined),
+                  title: Text(name, style: const TextStyle(fontSize: 13)),
+                  dense: true,
+                  onTap: () => Navigator.pop(ctx, f.path),
+                );
+              }),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.folder_open),
+              title: const Text('Browse other files...'),
+              dense: true,
+              onTap: () => Navigator.pop(ctx, '_browse_'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (selected == null || !mounted) return;
+
     try {
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['json'],
-        withData: true,
-      );
-
-      if (result == null) return;
-      final file = result.files.single;
-
-      // withData may return bytes, or we fall back to reading from path
       String jsonStr;
-      if (file.bytes != null) {
-        jsonStr = utf8.decode(file.bytes!);
-      } else if (file.path != null) {
-        jsonStr = await File(file.path!).readAsString();
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not read file')),
-          );
+
+      if (selected == '_browse_') {
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['json'],
+          withData: true,
+        );
+        if (result == null) return;
+        final file = result.files.single;
+        if (file.bytes != null) {
+          jsonStr = utf8.decode(file.bytes!);
+        } else if (file.path != null) {
+          jsonStr = await File(file.path!).readAsString();
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not read file')),
+            );
+          }
+          return;
         }
-        return;
+      } else {
+        jsonStr = await File(selected).readAsString();
       }
 
       final data = json.decode(jsonStr) as Map<String, dynamic>;
 
-      // Confirm
+      if (!mounted) return;
       final confirm = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
