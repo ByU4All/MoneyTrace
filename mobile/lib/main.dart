@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/recurring_processor.dart';
+import 'l10n/strings.dart';
 import 'providers/database_provider.dart';
+import 'providers/dashboard_provider.dart';
+import 'providers/locale_provider.dart';
 import 'theme/app_theme.dart';
 import 'theme/colors.dart';
 import 'screens/dashboard_screen.dart';
@@ -14,21 +18,33 @@ import 'screens/recurring_screen.dart';
 import 'screens/credit_cards_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/visual_summary_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const ProviderScope(child: MoneyTraceApp()));
 }
 
-class MoneyTraceApp extends StatelessWidget {
+class MoneyTraceApp extends ConsumerWidget {
   const MoneyTraceApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeProvider);
+    final largeText = ref.watch(largeTextProvider);
+
     return MaterialApp(
       title: 'MoneyTrace',
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.darkTheme(locale: locale),
       debugShowCheckedModeBanner: false,
+      builder: largeText
+          ? (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(
+                  textScaler: const TextScaler.linear(1.15),
+                ),
+                child: child!,
+              )
+          : null,
       home: const MainShell(),
       routes: {
         '/add': (context) => const AddEventScreen(),
@@ -50,7 +66,7 @@ class MainShell extends ConsumerStatefulWidget {
   ConsumerState<MainShell> createState() => _MainShellState();
 }
 
-class _MainShellState extends ConsumerState<MainShell> {
+class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final PageController _pageController;
 
@@ -74,18 +90,59 @@ class _MainShellState extends ConsumerState<MainShell> {
     return pageIndex + 1; // 2→3, 3→4
   }
 
+  static const _widgetChannel = MethodChannel('com.luke.dev.moneytrace/widget');
+
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
-    // Run autopay processing on startup
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _processAutopay();
+      _handleWidgetAction();
     });
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.invalidate(dashboardProvider);
+    }
+  }
+
+  Future<void> _handleWidgetAction() async {
+    try {
+      final action = await _widgetChannel.invokeMethod<String>('getWidgetAction');
+      if (action == null || !mounted) return;
+
+      switch (action) {
+        case 'visual_summary':
+          final data = await ref.read(dashboardProvider.future);
+          if (mounted) {
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => VisualSummaryScreen(data: data),
+            ));
+          }
+        case 'liabilities':
+          if (mounted) Navigator.pushNamed(context, '/friends');
+        case 'receivables':
+          if (mounted) Navigator.pushNamed(context, '/friends');
+        case 'reserved':
+          // Navigate to recurring screen
+          if (mounted) {
+            setState(() => _currentIndex = 3); // recurring nav index
+            _pageController.jumpToPage(2); // recurring page index
+          }
+        // 'dashboard' or anything else → just open the app (already on dashboard)
+      }
+    } catch (_) {
+      // No widget action — normal app launch
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
     super.dispose();
   }
@@ -128,12 +185,12 @@ class _MainShellState extends ConsumerState<MainShell> {
             _pageController.jumpToPage(_navToPage(index));
           }
         },
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),
-          BottomNavigationBarItem(icon: Icon(Icons.account_balance), label: 'Accounts'),
-          BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), label: 'Add'),
-          BottomNavigationBarItem(icon: Icon(Icons.repeat), label: 'Recurring'),
-          BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'More'),
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.dashboard), label: AppStrings.get('nav_dashboard')),
+          BottomNavigationBarItem(icon: const Icon(Icons.account_balance), label: AppStrings.get('nav_accounts')),
+          BottomNavigationBarItem(icon: const Icon(Icons.add_circle_outline), label: AppStrings.get('nav_add')),
+          BottomNavigationBarItem(icon: const Icon(Icons.repeat), label: AppStrings.get('nav_recurring')),
+          BottomNavigationBarItem(icon: const Icon(Icons.more_horiz), label: AppStrings.get('nav_more')),
         ],
       ),
     );
@@ -147,15 +204,15 @@ class _MoreScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('More')),
+      appBar: AppBar(title: Text(AppStrings.get('nav_more'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _menuItem(context, Icons.people, 'Friends', '/friends'),
-          _menuItem(context, Icons.receipt_long, 'Loans', '/loans'),
-          _menuItem(context, Icons.credit_card, 'Credit Cards', '/credit-cards'),
-          _menuItem(context, Icons.history, 'History', '/history'),
-          _menuItem(context, Icons.settings, 'Settings', '/settings'),
+          _menuItem(context, Icons.people, AppStrings.get('menu_friends'), '/friends'),
+          _menuItem(context, Icons.receipt_long, AppStrings.get('menu_loans'), '/loans'),
+          _menuItem(context, Icons.credit_card, AppStrings.get('menu_credit_cards'), '/credit-cards'),
+          _menuItem(context, Icons.history, AppStrings.get('menu_history'), '/history'),
+          _menuItem(context, Icons.settings, AppStrings.get('menu_settings'), '/settings'),
         ],
       ),
     );

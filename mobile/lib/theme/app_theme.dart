@@ -7,26 +7,31 @@ import 'colors.dart';
 class AppTheme {
   AppTheme._();
 
-  static TextTheme _buildTextTheme() {
-    return GoogleFonts.spaceGroteskTextTheme(
-      const TextTheme(
-        headlineLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-        headlineMedium: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-        headlineSmall: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-        titleLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-        titleMedium: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w500),
-        titleSmall: TextStyle(color: AppColors.textSecondary),
-        bodyLarge: TextStyle(color: AppColors.textPrimary),
-        bodyMedium: TextStyle(color: AppColors.textPrimary),
-        bodySmall: TextStyle(color: AppColors.textSecondary),
-        labelLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w500),
-        labelMedium: TextStyle(color: AppColors.textSecondary),
-        labelSmall: TextStyle(color: AppColors.textMuted),
-      ),
-    );
+  static const TextTheme _baseTextTheme = TextTheme(
+    headlineLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+    headlineMedium: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+    headlineSmall: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+    titleLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+    titleMedium: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+    titleSmall: TextStyle(color: AppColors.textSecondary),
+    bodyLarge: TextStyle(color: AppColors.textPrimary),
+    bodyMedium: TextStyle(color: AppColors.textPrimary),
+    bodySmall: TextStyle(color: AppColors.textSecondary),
+    labelLarge: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+    labelMedium: TextStyle(color: AppColors.textSecondary),
+    labelSmall: TextStyle(color: AppColors.textMuted),
+  );
+
+  static TextTheme _buildTextTheme({String locale = 'en'}) {
+    if (locale == 'hi') {
+      // System font (Noto Sans Devanagari) handles Hindi natively
+      return _baseTextTheme;
+    }
+    return GoogleFonts.spaceGroteskTextTheme(_baseTextTheme);
   }
 
-  static ThemeData get darkTheme => ThemeData(
+  /// Build dark theme. Pass locale to switch font for Hindi.
+  static ThemeData darkTheme({String locale = 'en'}) => ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
         scaffoldBackgroundColor: AppColors.background,
@@ -48,11 +53,17 @@ class AppTheme {
           elevation: 0,
           scrolledUnderElevation: 0,
           centerTitle: true,
-          titleTextStyle: GoogleFonts.spaceGrotesk(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-          ),
+          titleTextStyle: locale == 'hi'
+              ? const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                )
+              : GoogleFonts.spaceGrotesk(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
         ),
 
         // Cards — no elevation, thin border
@@ -61,7 +72,7 @@ class AppTheme {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
           ),
         ),
 
@@ -89,7 +100,7 @@ class AppTheme {
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.textPrimary,
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(24),
             ),
@@ -111,11 +122,11 @@ class AppTheme {
           fillColor: AppColors.surfaceLight,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -135,7 +146,7 @@ class AppTheme {
           elevation: 4,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
           ),
         ),
 
@@ -146,7 +157,7 @@ class AppTheme {
             fillColor: AppColors.surfaceLight,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
             ),
           ),
           menuStyle: MenuStyle(
@@ -154,7 +165,7 @@ class AppTheme {
             shape: WidgetStatePropertyAll(
               RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
               ),
             ),
             elevation: const WidgetStatePropertyAll(4),
@@ -168,7 +179,7 @@ class AppTheme {
             shape: WidgetStatePropertyAll(
               RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
               ),
             ),
           ),
@@ -194,7 +205,7 @@ class AppTheme {
         chipTheme: ChipThemeData(
           backgroundColor: AppColors.surfaceLight,
           labelStyle: const TextStyle(color: AppColors.textPrimary),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -205,7 +216,7 @@ class AppTheme {
           backgroundColor: AppColors.surfaceLight,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.05)),
           ),
         ),
 
@@ -214,7 +225,7 @@ class AppTheme {
           backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
           ),
         ),
 
@@ -230,7 +241,7 @@ class AppTheme {
           }),
           trackOutlineColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) return Colors.transparent;
-            return Colors.white.withValues(alpha: 0.12);
+            return Colors.white.withValues(alpha: 0.06);
           }),
         ),
 
@@ -244,7 +255,7 @@ class AppTheme {
           behavior: SnackBarBehavior.floating,
         ),
 
-        // Text — Space Grotesk
-        textTheme: _buildTextTheme(),
+        // Text — Space Grotesk (English) or system font (Hindi)
+        textTheme: _buildTextTheme(locale: locale),
       );
 }

@@ -41,6 +41,9 @@ enum RecurringFrequency {
   daily('daily'),
   weekly('weekly'),
   monthly('monthly'),
+  bimonthly('bimonthly'),
+  quarterly('quarterly'),
+  halfYearly('half_yearly'),
   yearly('yearly');
 
   const RecurringFrequency(this.value);

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/budget.dart';
 import '../data/database.dart';
+import '../l10n/strings.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
@@ -16,109 +18,266 @@ final pendingProvider = FutureProvider.autoDispose<List<PendingTransaction>>((re
   return ref.watch(recurringDaoProvider).getPendingTransactions();
 });
 
+/// Bundle of recurring buckets for display: due-now, paid, and future.
+class _RecurringBuckets {
+  final List<RecurringTransaction> dueThisMonth;
+  final List<RecurringTransaction> paidThisMonth;
+  final List<RecurringTransaction> upcoming;
+
+  _RecurringBuckets({
+    required this.dueThisMonth,
+    required this.paidThisMonth,
+    required this.upcoming,
+  });
+}
+
+final recurringBucketsProvider =
+    FutureProvider.autoDispose<_RecurringBuckets>((ref) async {
+  final recurring = await ref.watch(recurringProvider.future);
+  final eventDao = ref.watch(eventDaoProvider);
+  final settingsDao = ref.watch(settingsDaoProvider);
+
+  final now = DateTime.now();
+  final resetDay = await settingsDao.getBudgetResetDay();
+  final (year, month) = getBudgetPeriod(now, resetDay);
+  final periodStart = DateTime(year, month, resetDay);
+  final periodEnd = DateTime(year, month + 1, resetDay)
+      .subtract(const Duration(days: 1));
+
+  final events = await eventDao.getEventsAsMaps(month: month, year: year);
+
+  final dueThisMonth = <RecurringTransaction>[];
+  final paidThisMonth = <RecurringTransaction>[];
+  final upcoming = <RecurringTransaction>[];
+
+  for (final rec in recurring) {
+    final hasEvent = events.any((e) => e['recurring_id'] == rec.id);
+    if (hasEvent) {
+      paidThisMonth.add(rec);
+      continue;
+    }
+
+    final nextDue = rec.nextDueDate != null
+        ? DateTime.tryParse(rec.nextDueDate!)
+        : null;
+
+    bool relevant;
+    if (rec.frequency == 'monthly' ||
+        rec.frequency == 'daily' ||
+        rec.frequency == 'weekly') {
+      relevant = true;
+    } else {
+      relevant = nextDue != null &&
+          !nextDue.isBefore(periodStart) &&
+          !nextDue.isAfter(periodEnd);
+    }
+
+    if (relevant) {
+      dueThisMonth.add(rec);
+    } else {
+      upcoming.add(rec);
+    }
+  }
+
+  return _RecurringBuckets(
+    dueThisMonth: dueThisMonth,
+    paidThisMonth: paidThisMonth,
+    upcoming: upcoming,
+  );
+});
+
 class RecurringScreen extends ConsumerWidget {
   const RecurringScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recurringAsync = ref.watch(recurringProvider);
+    final bucketsAsync = ref.watch(recurringBucketsProvider);
     final pendingAsync = ref.watch(pendingProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recurring'),
+        title: Text(AppStrings.get('recurring')),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_alarm),
-            tooltip: 'Add Recurring',
+            tooltip: AppStrings.get('add_recurring'),
             onPressed: () => _showAddRecurringSheet(context, ref),
           ),
         ],
       ),
-      body: recurringAsync.when(
+      body: bucketsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
-        data: (items) {
+        data: (buckets) {
           final pending = pendingAsync.valueOrNull ?? [];
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // Pending section
-              if (pending.isNotEmpty) ...[
-                Text('Pending Verification', style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                ...pending.map((p) => Card(
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: AppColors.warning,
-                      child: Icon(Icons.pending_actions, color: Colors.black),
-                    ),
-                    title: Text('Due: ${p.dueDate}'),
-                    subtitle: Text(formatAmount(p.amount)),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.check, color: AppColors.success),
-                          onPressed: () async {
-                            await ref.read(recurringDaoProvider).updatePendingStatus(p.id, 'confirmed');
-                            ref.invalidate(pendingProvider);
-                          },
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(recurringBucketsProvider);
+              ref.invalidate(pendingProvider);
+              ref.invalidate(recurringProvider);
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                if (pending.isNotEmpty) ...[
+                  Text(AppStrings.get('pending_verification'),
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  ...pending.map((p) => Card(
+                        child: ListTile(
+                          leading: const CircleAvatar(
+                            backgroundColor: AppColors.warning,
+                            child: Icon(Icons.pending_actions, color: Colors.black),
+                          ),
+                          title: Text('Due: ${p.dueDate}'),
+                          subtitle: Text(formatAmount(p.amount)),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.check, color: AppColors.success),
+                                onPressed: () async {
+                                  await ref
+                                      .read(recurringDaoProvider)
+                                      .updatePendingStatus(p.id, 'confirmed');
+                                  ref.invalidate(pendingProvider);
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.skip_next, color: AppColors.textMuted),
+                                onPressed: () async {
+                                  await ref
+                                      .read(recurringDaoProvider)
+                                      .updatePendingStatus(p.id, 'skipped');
+                                  ref.invalidate(pendingProvider);
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.skip_next, color: AppColors.textMuted),
-                          onPressed: () async {
-                            await ref.read(recurringDaoProvider).updatePendingStatus(p.id, 'skipped');
-                            ref.invalidate(pendingProvider);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                )),
-                const SizedBox(height: 16),
-              ],
+                      )),
+                  const SizedBox(height: 16),
+                ],
 
-              // Active recurring
-              Text('Active', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              if (items.isEmpty)
-                const Card(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: Text('No recurring transactions', style: TextStyle(color: AppColors.textMuted))),
-                  ),
-                )
-              else
-                ...items.map((item) => Card(
-                  child: ListTile(
-                    leading: AppIcons.eventIcon(item.type),
-                    title: Text(item.name),
-                    subtitle: Text(
-                      '${formatAmount(item.amount)} \u2022 ${item.frequency}${item.nextDueDate != null ? ' \u2022 Next: ${item.nextDueDate}' : ''}',
-                      style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
-                    ),
-                    trailing: PopupMenuButton(
-                      itemBuilder: (ctx) => [
-                        const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                        const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: AppColors.danger))),
-                      ],
-                      onSelected: (value) async {
-                        if (value == 'edit') {
-                          _showEditRecurringSheet(context, ref, item);
-                        } else if (value == 'delete') {
-                          await ref.read(recurringDaoProvider).deleteRecurring(item.id);
-                          ref.invalidate(recurringProvider);
-                          ref.invalidate(dashboardProvider);
-                        }
-                      },
+                if (buckets.dueThisMonth.isEmpty &&
+                    (buckets.paidThisMonth.isNotEmpty || buckets.upcoming.isNotEmpty))
+                  Card(
+                    color: AppColors.success.withValues(alpha: 0.15),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: AppColors.success),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              AppStrings.get('all_done_this_month'),
+                              style: const TextStyle(
+                                  color: AppColors.success, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                )),
-            ],
+
+                if (buckets.dueThisMonth.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(AppStrings.get('due_this_month'),
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  ...buckets.dueThisMonth
+                      .map((item) => _recurringTile(context, ref, item, _RecurringStatus.due)),
+                ],
+
+                if (buckets.paidThisMonth.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(AppStrings.get('paid_this_month'),
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  ...buckets.paidThisMonth
+                      .map((item) => _recurringTile(context, ref, item, _RecurringStatus.paid)),
+                ],
+
+                if (buckets.upcoming.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Text(AppStrings.get('upcoming'),
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  ...buckets.upcoming
+                      .map((item) => _recurringTile(context, ref, item, _RecurringStatus.upcoming)),
+                ],
+
+                if (buckets.dueThisMonth.isEmpty &&
+                    buckets.paidThisMonth.isEmpty &&
+                    buckets.upcoming.isEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Text(AppStrings.get('no_recurring_transactions'),
+                            style: const TextStyle(color: AppColors.textMuted)),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _recurringTile(
+      BuildContext context, WidgetRef ref, RecurringTransaction item, _RecurringStatus status) {
+    final dim = status == _RecurringStatus.upcoming;
+    final paid = status == _RecurringStatus.paid;
+
+    return Opacity(
+      opacity: dim ? 0.55 : 1.0,
+      child: Card(
+        child: ListTile(
+          leading: paid
+              ? const CircleAvatar(
+                  backgroundColor: AppColors.success,
+                  child: Icon(Icons.check, color: Colors.black, size: 18),
+                )
+              : AppIcons.eventIcon(item.type),
+          title: Text(
+            item.name,
+            style: paid
+                ? const TextStyle(decoration: TextDecoration.lineThrough)
+                : null,
+          ),
+          subtitle: Text(
+            '${formatAmount(item.amount)} • ${item.frequency}'
+            '${item.nextDueDate != null ? ' • Next: ${item.nextDueDate}' : ''}'
+            '${item.isAutopay == 1 ? ' • Auto-pay' : ''}',
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+          ),
+          trailing: dim
+              ? null
+              : PopupMenuButton(
+                  itemBuilder: (ctx) => [
+                    PopupMenuItem(value: 'edit', child: Text(AppStrings.get('edit'))),
+                    PopupMenuItem(
+                        value: 'delete',
+                        child: Text(AppStrings.get('delete'),
+                            style: const TextStyle(color: AppColors.danger))),
+                  ],
+                  onSelected: (value) async {
+                    if (value == 'edit') {
+                      _showEditRecurringSheet(context, ref, item);
+                    } else if (value == 'delete') {
+                      await ref.read(recurringDaoProvider).deleteRecurring(item.id);
+                      ref.invalidate(recurringProvider);
+                      ref.invalidate(recurringBucketsProvider);
+                      ref.invalidate(dashboardProvider);
+                    }
+                  },
+                ),
+        ),
       ),
     );
   }
@@ -151,20 +310,27 @@ class RecurringScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Add Recurring Transaction', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                Text(AppStrings.get('add_recurring_transaction'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 16),
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name'), autofocus: true),
+                TextField(
+                    controller: nameCtrl,
+                    decoration: InputDecoration(labelText: AppStrings.get('name')),
+                    autofocus: true),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: selectedType,
-                        decoration: const InputDecoration(labelText: 'Type'),
-                        items: const [
-                          DropdownMenuItem(value: 'expense', child: Text('Expense')),
-                          DropdownMenuItem(value: 'emi_payment', child: Text('EMI')),
-                          DropdownMenuItem(value: 'income', child: Text('Income')),
+                        decoration: InputDecoration(labelText: AppStrings.get('type')),
+                        items: [
+                          DropdownMenuItem(
+                              value: 'expense', child: Text(AppStrings.get('tab_expense'))),
+                          DropdownMenuItem(
+                              value: 'emi_payment', child: Text(AppStrings.get('emi'))),
+                          DropdownMenuItem(
+                              value: 'income', child: Text(AppStrings.get('tab_income'))),
                         ],
                         onChanged: (v) => setState(() {
                           selectedType = v!;
@@ -176,12 +342,29 @@ class RecurringScreen extends ConsumerWidget {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: selectedFrequency,
-                        decoration: const InputDecoration(labelText: 'Frequency'),
-                        items: const [
-                          DropdownMenuItem(value: 'daily', child: Text('Daily')),
-                          DropdownMenuItem(value: 'weekly', child: Text('Weekly')),
-                          DropdownMenuItem(value: 'monthly', child: Text('Monthly')),
-                          DropdownMenuItem(value: 'yearly', child: Text('Yearly')),
+                        decoration: InputDecoration(labelText: AppStrings.get('frequency')),
+                        items: [
+                          DropdownMenuItem(
+                              value: 'daily',
+                              child: Text(AppStrings.frequencyName('daily'))),
+                          DropdownMenuItem(
+                              value: 'weekly',
+                              child: Text(AppStrings.frequencyName('weekly'))),
+                          DropdownMenuItem(
+                              value: 'monthly',
+                              child: Text(AppStrings.frequencyName('monthly'))),
+                          DropdownMenuItem(
+                              value: 'bimonthly',
+                              child: Text(AppStrings.frequencyName('bimonthly'))),
+                          DropdownMenuItem(
+                              value: 'quarterly',
+                              child: Text(AppStrings.frequencyName('quarterly'))),
+                          DropdownMenuItem(
+                              value: 'half_yearly',
+                              child: Text(AppStrings.frequencyName('half_yearly'))),
+                          DropdownMenuItem(
+                              value: 'yearly',
+                              child: Text(AppStrings.frequencyName('yearly'))),
                         ],
                         onChanged: (v) => setState(() => selectedFrequency = v!),
                       ),
@@ -191,28 +374,42 @@ class RecurringScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: amountCtrl, decoration: const InputDecoration(labelText: 'Amount (\u20B9)'), keyboardType: TextInputType.number)),
+                    Expanded(
+                        child: TextField(
+                            controller: amountCtrl,
+                            decoration:
+                                InputDecoration(labelText: AppStrings.get('amount')),
+                            keyboardType: TextInputType.number)),
                     const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: dayCtrl, decoration: const InputDecoration(labelText: 'Day of Month'), keyboardType: TextInputType.number)),
+                    Expanded(
+                        child: TextField(
+                            controller: dayCtrl,
+                            decoration:
+                                InputDecoration(labelText: AppStrings.get('day_of_month')),
+                            keyboardType: TextInputType.number)),
                   ],
                 ),
-                // Category (for expense type)
                 if (selectedType == 'expense') ...[
                   const SizedBox(height: 12),
                   FutureBuilder(
-                    future: ref.read(databaseProvider).select(ref.read(databaseProvider).categories).get(),
+                    future: ref
+                        .read(databaseProvider)
+                        .select(ref.read(databaseProvider).categories)
+                        .get(),
                     builder: (context, snapshot) {
                       final categories = snapshot.data ?? [];
                       return DropdownButtonFormField<String>(
                         value: selectedCategory,
-                        decoration: const InputDecoration(labelText: 'Category'),
-                        items: categories.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
+                        decoration: InputDecoration(labelText: AppStrings.get('category')),
+                        items: categories
+                            .map((c) =>
+                                DropdownMenuItem(value: c.name, child: Text(c.name)))
+                            .toList(),
                         onChanged: (v) => setState(() => selectedCategory = v),
                       );
                     },
                   ),
                 ],
-                // Account
                 const SizedBox(height: 12),
                 FutureBuilder(
                   future: ref.read(accountDaoProvider).getAccounts(),
@@ -220,19 +417,21 @@ class RecurringScreen extends ConsumerWidget {
                     final accounts = snapshot.data ?? [];
                     return DropdownButtonFormField<String>(
                       value: selectedAccountId,
-                      decoration: const InputDecoration(labelText: 'Account (optional)'),
+                      decoration:
+                          InputDecoration(labelText: AppStrings.get('account_optional')),
                       items: [
-                        const DropdownMenuItem(value: null, child: Text('No account')),
-                        ...accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))),
+                        DropdownMenuItem(
+                            value: null, child: Text(AppStrings.get('no_account'))),
+                        ...accounts.map(
+                            (a) => DropdownMenuItem(value: a.id, child: Text(a.name))),
                       ],
                       onChanged: (v) => setState(() => selectedAccountId = v),
                     );
                   },
                 ),
-                // Autopay toggle
                 SwitchListTile(
-                  title: const Text('Autopay'),
-                  subtitle: const Text('Auto-create transactions on due date'),
+                  title: Text(AppStrings.get('autopay')),
+                  subtitle: Text(AppStrings.get('autopay_subtitle')),
                   value: isAutopay,
                   onChanged: (v) => setState(() => isAutopay = v),
                   contentPadding: EdgeInsets.zero,
@@ -245,44 +444,59 @@ class RecurringScreen extends ConsumerWidget {
                     if (name.isEmpty || amount == null) return;
 
                     final now = DateTime.now();
-                    final startDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+                    final startDate =
+                        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
                     final day = int.tryParse(dayCtrl.text) ?? 1;
 
-                    // Compute nextDueDate
                     String nextDueDate;
                     if (selectedFrequency == 'daily') {
                       final tomorrow = now.add(const Duration(days: 1));
-                      nextDueDate = '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
+                      nextDueDate =
+                          '${tomorrow.year}-${tomorrow.month.toString().padLeft(2, '0')}-${tomorrow.day.toString().padLeft(2, '0')}';
                     } else if (selectedFrequency == 'weekly') {
                       final nextWeek = now.add(const Duration(days: 7));
-                      nextDueDate = '${nextWeek.year}-${nextWeek.month.toString().padLeft(2, '0')}-${nextWeek.day.toString().padLeft(2, '0')}';
+                      nextDueDate =
+                          '${nextWeek.year}-${nextWeek.month.toString().padLeft(2, '0')}-${nextWeek.day.toString().padLeft(2, '0')}';
                     } else if (selectedFrequency == 'yearly') {
-                      final nextYear = DateTime(now.year + 1, now.month, day.clamp(1, 28));
-                      nextDueDate = '${nextYear.year}-${nextYear.month.toString().padLeft(2, '0')}-${nextYear.day.toString().padLeft(2, '0')}';
+                      final nextYear =
+                          DateTime(now.year + 1, now.month, day.clamp(1, 28));
+                      nextDueDate =
+                          '${nextYear.year}-${nextYear.month.toString().padLeft(2, '0')}-${nextYear.day.toString().padLeft(2, '0')}';
                     } else {
-                      // monthly: next occurrence of dayOfMonth
-                      final dueThisMonth = DateTime(now.year, now.month, day.clamp(1, 28));
-                      final due = dueThisMonth.isAfter(now) ? dueThisMonth : DateTime(now.year, now.month + 1, day.clamp(1, 28));
-                      nextDueDate = '${due.year}-${due.month.toString().padLeft(2, '0')}-${due.day.toString().padLeft(2, '0')}';
+                      final monthInterval = switch (selectedFrequency) {
+                        'bimonthly' => 2,
+                        'quarterly' => 3,
+                        'half_yearly' => 6,
+                        _ => 1,
+                      };
+                      final dueThisMonth =
+                          DateTime(now.year, now.month, day.clamp(1, 28));
+                      final due = dueThisMonth.isAfter(now)
+                          ? dueThisMonth
+                          : DateTime(
+                              now.year, now.month + monthInterval, day.clamp(1, 28));
+                      nextDueDate =
+                          '${due.year}-${due.month.toString().padLeft(2, '0')}-${due.day.toString().padLeft(2, '0')}';
                     }
 
                     await ref.read(recurringDaoProvider).createRecurring(
-                      name: name,
-                      type: selectedType,
-                      amount: (amount * 100).round(),
-                      category: selectedCategory,
-                      accountId: selectedAccountId,
-                      frequency: selectedFrequency,
-                      dayOfMonth: day,
-                      startDate: startDate,
-                      isAutopay: isAutopay,
-                      nextDueDate: nextDueDate,
-                    );
+                          name: name,
+                          type: selectedType,
+                          amount: (amount * 100).round(),
+                          category: selectedCategory,
+                          accountId: selectedAccountId,
+                          frequency: selectedFrequency,
+                          dayOfMonth: day,
+                          startDate: startDate,
+                          isAutopay: isAutopay,
+                          nextDueDate: nextDueDate,
+                        );
                     ref.invalidate(recurringProvider);
+                    ref.invalidate(recurringBucketsProvider);
                     ref.invalidate(dashboardProvider);
                     if (context.mounted) Navigator.pop(context);
                   },
-                  child: const Text('Add'),
+                  child: Text(AppStrings.get('add')),
                 ),
               ],
             ),
@@ -318,29 +532,47 @@ class RecurringScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Edit Recurring Transaction', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                Text(AppStrings.get('edit_recurring_transaction'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 16),
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Name')),
+                TextField(
+                    controller: nameCtrl,
+                    decoration: InputDecoration(labelText: AppStrings.get('name'))),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: amountCtrl, decoration: const InputDecoration(labelText: 'Amount (\u20B9)'), keyboardType: TextInputType.number)),
+                    Expanded(
+                        child: TextField(
+                            controller: amountCtrl,
+                            decoration:
+                                InputDecoration(labelText: AppStrings.get('amount')),
+                            keyboardType: TextInputType.number)),
                     const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: dayCtrl, decoration: const InputDecoration(labelText: 'Day of Month'), keyboardType: TextInputType.number)),
+                    Expanded(
+                        child: TextField(
+                            controller: dayCtrl,
+                            decoration:
+                                InputDecoration(labelText: AppStrings.get('day_of_month')),
+                            keyboardType: TextInputType.number)),
                   ],
                 ),
                 if (item.type == 'expense') ...[
                   const SizedBox(height: 12),
                   FutureBuilder(
-                    future: ref.read(databaseProvider).select(ref.read(databaseProvider).categories).get(),
+                    future: ref
+                        .read(databaseProvider)
+                        .select(ref.read(databaseProvider).categories)
+                        .get(),
                     builder: (context, snapshot) {
                       final categories = snapshot.data ?? [];
                       return DropdownButtonFormField<String>(
                         value: selectedCategory,
-                        decoration: const InputDecoration(labelText: 'Category'),
+                        decoration: InputDecoration(labelText: AppStrings.get('category')),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('None')),
-                          ...categories.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))),
+                          DropdownMenuItem(
+                              value: null, child: Text(AppStrings.get('none'))),
+                          ...categories.map(
+                              (c) => DropdownMenuItem(value: c.name, child: Text(c.name))),
                         ],
                         onChanged: (v) => setState(() => selectedCategory = v),
                       );
@@ -354,18 +586,21 @@ class RecurringScreen extends ConsumerWidget {
                     final accounts = snapshot.data ?? [];
                     return DropdownButtonFormField<String>(
                       value: selectedAccountId,
-                      decoration: const InputDecoration(labelText: 'Account (optional)'),
+                      decoration:
+                          InputDecoration(labelText: AppStrings.get('account_optional')),
                       items: [
-                        const DropdownMenuItem(value: null, child: Text('No account')),
-                        ...accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))),
+                        DropdownMenuItem(
+                            value: null, child: Text(AppStrings.get('no_account'))),
+                        ...accounts.map(
+                            (a) => DropdownMenuItem(value: a.id, child: Text(a.name))),
                       ],
                       onChanged: (v) => setState(() => selectedAccountId = v),
                     );
                   },
                 ),
                 SwitchListTile(
-                  title: const Text('Autopay'),
-                  subtitle: const Text('Auto-create transactions on due date'),
+                  title: Text(AppStrings.get('autopay')),
+                  subtitle: Text(AppStrings.get('autopay_subtitle')),
                   value: isAutopay,
                   onChanged: (v) => setState(() => isAutopay = v),
                   contentPadding: EdgeInsets.zero,
@@ -378,19 +613,20 @@ class RecurringScreen extends ConsumerWidget {
                     if (name.isEmpty || amount == null) return;
 
                     await ref.read(recurringDaoProvider).updateRecurring(
-                      item.id,
-                      name: name,
-                      amount: (amount * 100).round(),
-                      category: selectedCategory,
-                      accountId: selectedAccountId,
-                      dayOfMonth: int.tryParse(dayCtrl.text) ?? 1,
-                      isAutopay: isAutopay,
-                    );
+                          item.id,
+                          name: name,
+                          amount: (amount * 100).round(),
+                          category: selectedCategory,
+                          accountId: selectedAccountId,
+                          dayOfMonth: int.tryParse(dayCtrl.text) ?? 1,
+                          isAutopay: isAutopay,
+                        );
                     ref.invalidate(recurringProvider);
+                    ref.invalidate(recurringBucketsProvider);
                     ref.invalidate(dashboardProvider);
                     if (context.mounted) Navigator.pop(context);
                   },
-                  child: const Text('Save Changes'),
+                  child: Text(AppStrings.get('save_changes')),
                 ),
               ],
             ),
@@ -400,3 +636,5 @@ class RecurringScreen extends ConsumerWidget {
     );
   }
 }
+
+enum _RecurringStatus { due, paid, upcoming }

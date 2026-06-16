@@ -76,6 +76,23 @@ class SettingsDao {
 
   Future<void> setLastResetDate(String value) => _set('last_reset_date', value);
 
+  // Language
+  Future<String> getLanguage() async {
+    final v = await _get('language');
+    return v ?? 'en';
+  }
+
+  Future<void> setLanguage(String value) => _set('language', value);
+
+  // Large text
+  Future<bool> getLargeText() async {
+    final v = await _get('large_text');
+    return v == 'true' || v == '1';
+  }
+
+  Future<void> setLargeText(bool value) =>
+      _set('large_text', value ? 'true' : 'false');
+
   // Get all settings as a map
   Future<Map<String, dynamic>> getAllSettings() async {
     return {

@@ -50,9 +50,16 @@ class FriendDao {
   }
 
   Future<bool> deleteFriend(String id) async {
-    final count = await (_db.delete(_db.friends)
-          ..where((f) => f.id.equals(id)))
-        .go();
-    return count > 0;
+    return _db.transaction(() async {
+      // Strip any leftover multi-tag references so the join table never
+      // holds rows pointing at a friend that no longer exists.
+      await (_db.delete(_db.eventFriends)
+            ..where((ef) => ef.friendId.equals(id)))
+          .go();
+      final count = await (_db.delete(_db.friends)
+            ..where((f) => f.id.equals(id)))
+          .go();
+      return count > 0;
+    });
   }
 }

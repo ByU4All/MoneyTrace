@@ -210,6 +210,22 @@ class AuditLog extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Many-to-many tag table linking events to friends.
+/// Used for "with friends" tags on EXPENSE/INCOME etc. — a tag for history,
+/// not for balance. The single primary friend on Events.friend_id still drives
+/// LIABILITY/RECEIVABLE/SETTLEMENT balance semantics in engine.dart.
+class EventFriends extends Table {
+  TextColumn get eventId => text().named('event_id')();
+  TextColumn get friendId => text().named('friend_id')();
+  IntColumn get shareAmount => integer().nullable().named('share_amount')();
+
+  @override
+  Set<Column> get primaryKey => {eventId, friendId};
+
+  @override
+  String get tableName => 'event_friends';
+}
+
 // ---------------------------------------------------------------------------
 // Database Class
 // ---------------------------------------------------------------------------
@@ -227,6 +243,7 @@ class AuditLog extends Table {
   LoanEmiSchedule,
   CreditCardStatements,
   AuditLog,
+  EventFriends,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(connection.connect());
@@ -234,5 +251,23 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) async {
+          await m.createAll();
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(eventFriends);
+            // Backfill: every event with a primary friend_id also gets a row
+            // in event_friends so per-friend history queries see them.
+            await customStatement(
+              'INSERT OR IGNORE INTO event_friends (event_id, friend_id) '
+              'SELECT id, friend_id FROM events WHERE friend_id IS NOT NULL',
+            );
+          }
+        },
+      );
 }

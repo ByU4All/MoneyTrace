@@ -132,12 +132,80 @@ class EventDao {
     return count > 0;
   }
 
-  /// Get events for a specific friend.
+  /// Get events linked to a friend either as the primary friend (Events.friendId)
+  /// or as a multi-friend tag (event_friends join table).
   Future<List<Event>> getEventsByFriend(String friendId) async {
-    return (_db.select(_db.events)
-          ..where((e) => e.friendId.equals(friendId))
-          ..orderBy([(e) => OrderingTerm.desc(e.eventDate)]))
+    final byPrimary = await (_db.select(_db.events)
+          ..where((e) => e.friendId.equals(friendId)))
         .get();
+    final tagged = await (_db.select(_db.events).join([
+      innerJoin(_db.eventFriends, _db.eventFriends.eventId.equalsExp(_db.events.id)),
+    ])
+          ..where(_db.eventFriends.friendId.equals(friendId)))
+        .map((row) => row.readTable(_db.events))
+        .get();
+
+    final seen = <String>{};
+    final merged = <Event>[];
+    for (final e in [...byPrimary, ...tagged]) {
+      if (seen.add(e.id)) merged.add(e);
+    }
+    merged.sort((a, b) => b.eventDate.compareTo(a.eventDate));
+    return merged;
+  }
+
+  /// Replace the set of friends tagged on an event with the given list.
+  Future<void> tagFriends(String eventId, List<String> friendIds) async {
+    await _db.transaction(() async {
+      await (_db.delete(_db.eventFriends)
+            ..where((ef) => ef.eventId.equals(eventId)))
+          .go();
+      for (final fid in friendIds) {
+        await _db.into(_db.eventFriends).insert(
+              EventFriendsCompanion.insert(eventId: eventId, friendId: fid),
+              mode: InsertMode.insertOrIgnore,
+            );
+      }
+    });
+  }
+
+  /// Read the friend IDs tagged on an event (multi-tag join table only;
+  /// does not include the primary Events.friendId).
+  Future<List<String>> getTaggedFriends(String eventId) async {
+    final rows = await (_db.select(_db.eventFriends)
+          ..where((ef) => ef.eventId.equals(eventId)))
+        .get();
+    return rows.map((r) => r.friendId).toList();
+  }
+
+  /// Null out the primary friend reference on every event linked to this friend.
+  /// Also removes any join-table tags pointing at the friend.
+  Future<int> unlinkFriend(String friendId) async {
+    return _db.transaction(() async {
+      final updated = await (_db.update(_db.events)
+            ..where((e) => e.friendId.equals(friendId)))
+          .write(const EventsCompanion(friendId: Value(null)));
+      await (_db.delete(_db.eventFriends)
+            ..where((ef) => ef.friendId.equals(friendId)))
+          .go();
+      return updated;
+    });
+  }
+
+  /// Delete every event linked to a friend (primary or multi-tag).
+  /// Returns the number of deleted events.
+  Future<int> deleteEventsByFriend(String friendId) async {
+    return _db.transaction(() async {
+      final ids = (await getEventsByFriend(friendId)).map((e) => e.id).toList();
+      if (ids.isEmpty) return 0;
+      await (_db.delete(_db.eventFriends)
+            ..where((ef) => ef.eventId.isIn(ids)))
+          .go();
+      final deleted = await (_db.delete(_db.events)
+            ..where((e) => e.id.isIn(ids)))
+          .go();
+      return deleted;
+    });
   }
 
   /// Get events for a specific account.

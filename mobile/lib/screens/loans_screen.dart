@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/engine.dart';
 import '../data/database.dart';
+import '../l10n/strings.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
 import 'recurring_screen.dart' show recurringProvider;
 import '../widgets/amount_display.dart';
 import '../widgets/progress_bar.dart';
+
+String _emiCountdownLabel(int emiDay) {
+  final days = daysUntilNextEmi(emiDay: emiDay, now: DateTime.now());
+  if (days == 0) return AppStrings.get('today');
+  return AppStrings.format('days', ['$days']);
+}
 
 final loansProvider = FutureProvider.autoDispose<List<Loan>>((ref) async {
   return ref.watch(loanDaoProvider).getLoans();
@@ -22,11 +30,11 @@ class LoansScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Loans'),
+        title: Text(AppStrings.get('loans')),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_card),
-            tooltip: 'Add Loan',
+            tooltip: AppStrings.get('add_loan'),
             onPressed: () => _showAddLoanSheet(context, ref),
           ),
         ],
@@ -36,8 +44,8 @@ class LoansScreen extends ConsumerWidget {
         error: (err, _) => Center(child: Text('Error: $err')),
         data: (loans) {
           if (loans.isEmpty) {
-            return const Center(
-              child: Text('No active loans', style: TextStyle(color: AppColors.textMuted)),
+            return Center(
+              child: Text(AppStrings.get('no_active_loans'), style: const TextStyle(color: AppColors.textMuted)),
             );
           }
           return ListView.builder(
@@ -71,7 +79,7 @@ class LoansScreen extends ConsumerWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('$remaining EMIs remaining', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                            Text(AppStrings.format('emis_remaining', ['$remaining']), style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                             Text('${progress.round()}%', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                           ],
                         ),
@@ -82,16 +90,27 @@ class LoansScreen extends ConsumerWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('EMI', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                                Text(AppStrings.get('emi'), style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
                                 Text(formatAmount(loan.emiAmount), style: const TextStyle(fontWeight: FontWeight.w500)),
                               ],
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text('Outstanding', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                                Text(AppStrings.get('outstanding'), style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
                                 Text(formatAmount(outstanding), style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w500)),
                               ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Icon(Icons.schedule, size: 14, color: AppColors.textMuted),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${AppStrings.get('next_emi_in')}: ${_emiCountdownLabel(loan.emiDay)}',
+                              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                             ),
                           ],
                         ),
@@ -141,45 +160,45 @@ class LoansScreen extends ConsumerWidget {
             builder: (context, setState) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Add Loan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                Text(AppStrings.get('add_loan'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 16),
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Loan Name')),
+                TextField(controller: nameCtrl, decoration: InputDecoration(labelText: AppStrings.get('loan_name'))),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedType,
-                  decoration: const InputDecoration(labelText: 'Type'),
-                  items: const [
-                    DropdownMenuItem(value: 'home_loan', child: Text('Home Loan')),
-                    DropdownMenuItem(value: 'car_loan', child: Text('Car Loan')),
-                    DropdownMenuItem(value: 'personal_loan', child: Text('Personal Loan')),
-                    DropdownMenuItem(value: 'credit_card_emi', child: Text('Credit Card EMI')),
-                    DropdownMenuItem(value: 'bnpl', child: Text('Buy Now Pay Later')),
-                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  decoration: InputDecoration(labelText: AppStrings.get('type')),
+                  items: [
+                    DropdownMenuItem(value: 'home_loan', child: Text(AppStrings.loanTypeName('home_loan'))),
+                    DropdownMenuItem(value: 'car_loan', child: Text(AppStrings.loanTypeName('car_loan'))),
+                    DropdownMenuItem(value: 'personal_loan', child: Text(AppStrings.loanTypeName('personal_loan'))),
+                    DropdownMenuItem(value: 'credit_card_emi', child: Text(AppStrings.loanTypeName('credit_card_emi'))),
+                    DropdownMenuItem(value: 'bnpl', child: Text(AppStrings.loanTypeName('bnpl'))),
+                    DropdownMenuItem(value: 'other', child: Text(AppStrings.loanTypeName('other'))),
                   ],
                   onChanged: (v) => setState(() => selectedType = v!),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: principalCtrl, decoration: const InputDecoration(labelText: 'Principal (\u20B9)'), keyboardType: TextInputType.number)),
+                    Expanded(child: TextField(controller: principalCtrl, decoration: InputDecoration(labelText: AppStrings.get('principal_amount')), keyboardType: TextInputType.number)),
                     const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: rateCtrl, decoration: const InputDecoration(labelText: 'Interest (%/yr)'), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
+                    Expanded(child: TextField(controller: rateCtrl, decoration: InputDecoration(labelText: AppStrings.get('interest_pct')), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: tenureCtrl, decoration: const InputDecoration(labelText: 'Tenure (months)'), keyboardType: TextInputType.number)),
+                    Expanded(child: TextField(controller: tenureCtrl, decoration: InputDecoration(labelText: AppStrings.get('tenure_months')), keyboardType: TextInputType.number)),
                     const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: emiCtrl, decoration: const InputDecoration(labelText: 'EMI (\u20B9)'), keyboardType: TextInputType.number)),
+                    Expanded(child: TextField(controller: emiCtrl, decoration: InputDecoration(labelText: AppStrings.get('emi_amount')), keyboardType: TextInputType.number)),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: emiDayCtrl, decoration: const InputDecoration(labelText: 'EMI Day'), keyboardType: TextInputType.number)),
+                    Expanded(child: TextField(controller: emiDayCtrl, decoration: InputDecoration(labelText: AppStrings.get('emi_day')), keyboardType: TextInputType.number)),
                     const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: lenderCtrl, decoration: const InputDecoration(labelText: 'Lender (optional)'))),
+                    Expanded(child: TextField(controller: lenderCtrl, decoration: InputDecoration(labelText: AppStrings.get('lender_optional')))),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -194,7 +213,7 @@ class LoansScreen extends ConsumerWidget {
                     if (picked != null) setState(() => loanStartDate = picked);
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Loan Start Date'),
+                    decoration: InputDecoration(labelText: AppStrings.get('loan_start_date')),
                     child: Text(
                       '${loanStartDate.year}-${loanStartDate.month.toString().padLeft(2, '0')}-${loanStartDate.day.toString().padLeft(2, '0')}',
                     ),
@@ -203,7 +222,7 @@ class LoansScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 TextField(
                   controller: paymentsMadeCtrl,
-                  decoration: const InputDecoration(labelText: 'EMIs Already Paid'),
+                  decoration: InputDecoration(labelText: AppStrings.get('emis_already_paid')),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 20),
@@ -220,14 +239,14 @@ class LoansScreen extends ConsumerWidget {
 
                     if (name.isEmpty || principal == null || rate == null || tenure == null || emi == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please fill all required fields')),
+                        SnackBar(content: Text(AppStrings.get('please_fill_required'))),
                       );
                       return;
                     }
 
                     if (paymentsMade >= tenure) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('EMIs paid must be less than tenure')),
+                        SnackBar(content: Text(AppStrings.get('emis_paid_less_tenure'))),
                       );
                       return;
                     }
@@ -277,7 +296,7 @@ class LoansScreen extends ConsumerWidget {
                     ref.invalidate(recurringProvider);
                     if (context.mounted) Navigator.pop(context);
                   },
-                  child: const Text('Add Loan'),
+                  child: Text(AppStrings.get('add_loan')),
                 ),
               ],
             ),
@@ -317,18 +336,19 @@ class LoansScreen extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('${loan.tenureMonths - loan.paymentsMade} of ${loan.tenureMonths} EMIs remaining', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                  Text(AppStrings.format('of_emis_remaining', ['${loan.tenureMonths - loan.paymentsMade}', '${loan.tenureMonths}']), style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                   Text('${progress.round()}%', style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                 ],
               ),
               const SizedBox(height: 16),
-              _detailRow('Principal', formatAmount(loan.principal)),
-              _detailRow('Interest Rate', '${loan.interestRate}%'),
-              _detailRow('EMI', formatAmount(loan.emiAmount)),
-              _detailRow('Outstanding', formatAmount(outstanding), valueColor: AppColors.danger),
-              _detailRow('Total Paid', formatAmount(totalPaid), valueColor: AppColors.success),
-              _detailRow('EMI Day', '${loan.emiDay}th'),
-              if (loan.lender != null) _detailRow('Lender', loan.lender!),
+              _detailRow(AppStrings.get('principal'), formatAmount(loan.principal)),
+              _detailRow(AppStrings.get('interest_rate'), '${loan.interestRate}%'),
+              _detailRow(AppStrings.get('emi'), formatAmount(loan.emiAmount)),
+              _detailRow(AppStrings.get('outstanding'), formatAmount(outstanding), valueColor: AppColors.danger),
+              _detailRow(AppStrings.get('total_paid'), formatAmount(totalPaid), valueColor: AppColors.success),
+              _detailRow(AppStrings.get('emi_day'), '${loan.emiDay}th'),
+              _detailRow(AppStrings.get('next_emi_in'), _emiCountdownLabel(loan.emiDay)),
+              if (loan.lender != null) _detailRow(AppStrings.get('lender'), loan.lender!),
               const SizedBox(height: 20),
               ElevatedButton.icon(
                 onPressed: () {
@@ -336,7 +356,7 @@ class LoansScreen extends ConsumerWidget {
                   _showEditLoanSheet(context, ref, loan);
                 },
                 icon: const Icon(Icons.edit),
-                label: const Text('Edit Loan'),
+                label: Text(AppStrings.get('edit_loan')),
               ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
@@ -344,14 +364,14 @@ class LoansScreen extends ConsumerWidget {
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('Close Loan?'),
-                      content: const Text('Mark this loan as inactive?'),
+                      title: Text(AppStrings.get('close_loan_q')),
+                      content: Text(AppStrings.get('mark_loan_inactive')),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppStrings.get('cancel'))),
                         ElevatedButton(
                           onPressed: () => Navigator.pop(ctx, true),
                           style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-                          child: const Text('Close'),
+                          child: Text(AppStrings.get('close')),
                         ),
                       ],
                     ),
@@ -374,7 +394,7 @@ class LoansScreen extends ConsumerWidget {
                   }
                 },
                 icon: const Icon(Icons.close, color: AppColors.danger),
-                label: const Text('Close Loan', style: TextStyle(color: AppColors.danger)),
+                label: Text(AppStrings.get('close_loan'), style: const TextStyle(color: AppColors.danger)),
               ),
             ],
           ),
@@ -421,31 +441,31 @@ class LoansScreen extends ConsumerWidget {
             builder: (context, setState) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Edit Loan', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                Text(AppStrings.get('edit_loan'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 16),
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Loan Name')),
+                TextField(controller: nameCtrl, decoration: InputDecoration(labelText: AppStrings.get('loan_name'))),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: principalCtrl, decoration: const InputDecoration(labelText: 'Principal (\u20B9)'), keyboardType: TextInputType.number)),
+                    Expanded(child: TextField(controller: principalCtrl, decoration: InputDecoration(labelText: AppStrings.get('principal_amount')), keyboardType: TextInputType.number)),
                     const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: rateCtrl, decoration: const InputDecoration(labelText: 'Interest (%/yr)'), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
+                    Expanded(child: TextField(controller: rateCtrl, decoration: InputDecoration(labelText: AppStrings.get('interest_pct')), keyboardType: const TextInputType.numberWithOptions(decimal: true))),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: tenureCtrl, decoration: const InputDecoration(labelText: 'Tenure (months)'), keyboardType: TextInputType.number)),
+                    Expanded(child: TextField(controller: tenureCtrl, decoration: InputDecoration(labelText: AppStrings.get('tenure_months')), keyboardType: TextInputType.number)),
                     const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: emiCtrl, decoration: const InputDecoration(labelText: 'EMI (\u20B9)'), keyboardType: TextInputType.number)),
+                    Expanded(child: TextField(controller: emiCtrl, decoration: InputDecoration(labelText: AppStrings.get('emi_amount')), keyboardType: TextInputType.number)),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: TextField(controller: emiDayCtrl, decoration: const InputDecoration(labelText: 'EMI Day'), keyboardType: TextInputType.number)),
+                    Expanded(child: TextField(controller: emiDayCtrl, decoration: InputDecoration(labelText: AppStrings.get('emi_day')), keyboardType: TextInputType.number)),
                     const SizedBox(width: 12),
-                    Expanded(child: TextField(controller: lenderCtrl, decoration: const InputDecoration(labelText: 'Lender (optional)'))),
+                    Expanded(child: TextField(controller: lenderCtrl, decoration: InputDecoration(labelText: AppStrings.get('lender_optional')))),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -460,7 +480,7 @@ class LoansScreen extends ConsumerWidget {
                     if (picked != null) setState(() => loanStartDate = picked);
                   },
                   child: InputDecorator(
-                    decoration: const InputDecoration(labelText: 'Loan Start Date'),
+                    decoration: InputDecoration(labelText: AppStrings.get('loan_start_date')),
                     child: Text(
                       '${loanStartDate.year}-${loanStartDate.month.toString().padLeft(2, '0')}-${loanStartDate.day.toString().padLeft(2, '0')}',
                     ),
@@ -469,7 +489,7 @@ class LoansScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 TextField(
                   controller: paymentsMadeCtrl,
-                  decoration: const InputDecoration(labelText: 'EMIs Already Paid'),
+                  decoration: InputDecoration(labelText: AppStrings.get('emis_already_paid')),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 20),
@@ -485,14 +505,14 @@ class LoansScreen extends ConsumerWidget {
 
                     if (name.isEmpty || principal == null || rate == null || tenure == null || emi == null) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please fill all required fields')),
+                        SnackBar(content: Text(AppStrings.get('please_fill_required'))),
                       );
                       return;
                     }
 
                     if (paymentsMade >= tenure) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('EMIs paid must be less than tenure')),
+                        SnackBar(content: Text(AppStrings.get('emis_paid_less_tenure'))),
                       );
                       return;
                     }
@@ -538,7 +558,7 @@ class LoansScreen extends ConsumerWidget {
                     ref.invalidate(recurringProvider);
                     if (context.mounted) Navigator.pop(context);
                   },
-                  child: const Text('Save Changes'),
+                  child: Text(AppStrings.get('save_changes')),
                 ),
               ],
             ),

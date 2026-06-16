@@ -353,16 +353,20 @@ class DataDao {
     });
   }
 
-  /// Clear all transaction data.
-  Future<void> clearAllData({bool keepFriends = true}) async {
+  /// Clear all data and reset to defaults.
+  Future<void> clearAllData() async {
     await _db.transaction(() async {
       await _db.delete(_db.events).go();
+      await _db.delete(_db.friends).go();
+      await _db.delete(_db.categories).go();
       await _db.delete(_db.monthRecords).go();
+      await _db.delete(_db.loanEmiSchedule).go();
+      await _db.delete(_db.accounts).go();
+      await _db.delete(_db.recurringTransactions).go();
       await _db.delete(_db.pendingTransactions).go();
-
-      if (!keepFriends) {
-        await _db.delete(_db.friends).go();
-      }
+      await _db.delete(_db.loans).go();
+      await _db.delete(_db.creditCardStatements).go();
+      await _db.delete(_db.settings).go();
     });
   }
 }

@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/strings.dart';
 import '../providers/dashboard_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart';
@@ -13,13 +14,13 @@ class VisualSummaryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Budget Summary')),
+      appBar: AppBar(title: Text(AppStrings.get('budget_summary'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // Donut chart — category spending
           if (data.categorySpend.isNotEmpty) ...[
-            Text('Spending by Category', style: Theme.of(context).textTheme.titleMedium),
+            Text(AppStrings.get('spending_by_category'), style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 16),
             SizedBox(
               height: 250,
@@ -37,7 +38,7 @@ class VisualSummaryScreen extends StatelessWidget {
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Available', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                      Text(AppStrings.get('available'), style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
                       AmountDisplay(
                         amount: data.available,
                         style: TextStyle(
@@ -74,19 +75,19 @@ class VisualSummaryScreen extends StatelessWidget {
           ],
 
           // Stats grid
-          Text('Overview', style: Theme.of(context).textTheme.titleMedium),
+          Text(AppStrings.get('overview'), style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           _buildStatGrid(context),
           const SizedBox(height: 24),
 
           // You Owe breakdown
           if (_oweEntries.isNotEmpty) ...[
-            Text('You Owe', style: Theme.of(context).textTheme.titleMedium),
+            Text(AppStrings.get('you_owe'), style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Card(
               child: Column(
                 children: _oweEntries.map((e) => ListTile(
-                  title: Text(data.friendNames[e.key] ?? 'Unknown'),
+                  title: Text(data.friendNames[e.key] ?? AppStrings.get('unknown')),
                   trailing: AmountDisplay(
                     amount: e.value.abs(),
                     style: const TextStyle(color: AppColors.warning, fontWeight: FontWeight.w600),
@@ -99,12 +100,12 @@ class VisualSummaryScreen extends StatelessWidget {
 
           // Owed to You breakdown
           if (_owedEntries.isNotEmpty) ...[
-            Text('Owed to You', style: Theme.of(context).textTheme.titleMedium),
+            Text(AppStrings.get('owed_to_you'), style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             Card(
               child: Column(
                 children: _owedEntries.map((e) => ListTile(
-                  title: Text(data.friendNames[e.key] ?? 'Unknown'),
+                  title: Text(data.friendNames[e.key] ?? AppStrings.get('unknown')),
                   trailing: AmountDisplay(
                     amount: e.value,
                     style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w600),
@@ -152,23 +153,23 @@ class VisualSummaryScreen extends StatelessWidget {
           children: [
             Row(
               children: [
-                Expanded(child: _statTile('Total Spent', data.spent, AppColors.danger)),
-                Expanded(child: _statTile('Budget', data.baseBudget, AppColors.textPrimary)),
+                Expanded(child: _statTile(AppStrings.get('total_spent'), data.spent, AppColors.danger)),
+                Expanded(child: _statTile(AppStrings.get('budget'), data.baseBudget, AppColors.textPrimary)),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _statTile('Available', data.available, data.available >= 0 ? AppColors.success : AppColors.danger)),
+                Expanded(child: _statTile(AppStrings.get('available'), data.available, data.available >= 0 ? AppColors.success : AppColors.danger)),
                 if (data.unpaidCommitments > 0)
-                  Expanded(child: _statTile('Reserved', data.unpaidCommitments, AppColors.info)),
+                  Expanded(child: _statTile(AppStrings.get('reserved'), data.unpaidCommitments, AppColors.info)),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _statTile('You Owe', data.liabilities, AppColors.warning)),
-                Expanded(child: _statTile('Owed to You', data.receivables, AppColors.success)),
+                Expanded(child: _statTile(AppStrings.get('you_owe'), data.liabilities, AppColors.warning)),
+                Expanded(child: _statTile(AppStrings.get('owed_to_you'), data.receivables, AppColors.success)),
               ],
             ),
           ],

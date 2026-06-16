@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../l10n/strings.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart';
@@ -21,14 +22,14 @@ class CreditCardsScreen extends ConsumerWidget {
     final cardsAsync = ref.watch(creditCardsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Credit Cards')),
+      appBar: AppBar(title: Text(AppStrings.get('credit_cards'))),
       body: cardsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
         data: (cards) {
           if (cards.isEmpty) {
-            return const Center(
-              child: Text('No credit cards', style: TextStyle(color: AppColors.textMuted)),
+            return Center(
+              child: Text(AppStrings.get('no_credit_cards'), style: const TextStyle(color: AppColors.textMuted)),
             );
           }
           return ListView.builder(
@@ -64,21 +65,21 @@ class CreditCardsScreen extends ConsumerWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('Outstanding', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                                Text(AppStrings.get('outstanding'), style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
                                 Text(formatAmount(outstanding), style: const TextStyle(color: AppColors.danger, fontWeight: FontWeight.w500)),
                               ],
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                const Text('Available', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                                Text(AppStrings.get('available'), style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
                                 Text(formatAmount(limit - outstanding), style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w500)),
                               ],
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text('Limit', style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                                Text(AppStrings.get('limit'), style: const TextStyle(color: AppColors.textMuted, fontSize: 11)),
                                 Text(formatAmount(limit)),
                               ],
                             ),
@@ -128,11 +129,11 @@ class CreditCardsScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Edit ${card.name}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text(AppStrings.format('edit_card_name', [card.name]), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 16),
             TextField(
               controller: limitCtrl,
-              decoration: const InputDecoration(labelText: 'Credit Limit (\u20B9)'),
+              decoration: InputDecoration(labelText: AppStrings.get('credit_limit')),
               keyboardType: TextInputType.number,
               autofocus: true,
             ),
@@ -142,7 +143,7 @@ class CreditCardsScreen extends ConsumerWidget {
                 Expanded(
                   child: TextField(
                     controller: billingDayCtrl,
-                    decoration: const InputDecoration(labelText: 'Billing Day'),
+                    decoration: InputDecoration(labelText: AppStrings.get('billing_day')),
                     keyboardType: TextInputType.number,
                   ),
                 ),
@@ -150,7 +151,7 @@ class CreditCardsScreen extends ConsumerWidget {
                 Expanded(
                   child: TextField(
                     controller: dueDayCtrl,
-                    decoration: const InputDecoration(labelText: 'Due Day'),
+                    decoration: InputDecoration(labelText: AppStrings.get('due_day')),
                     keyboardType: TextInputType.number,
                   ),
                 ),
@@ -172,7 +173,7 @@ class CreditCardsScreen extends ConsumerWidget {
                 ref.invalidate(creditCardsProvider);
                 if (context.mounted) Navigator.pop(context);
               },
-              child: const Text('Save Changes'),
+              child: Text(AppStrings.get('save_changes')),
             ),
           ],
         ),
@@ -211,18 +212,18 @@ class CreditCardsScreen extends ConsumerWidget {
                       _showEditCardSheet(context, ref, card);
                     },
                     icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('Edit Card'),
+                    label: Text(AppStrings.get('edit_card')),
                   ),
                 ),
                 const SizedBox(height: 8),
                 if (statements.isEmpty)
-                  const Center(child: Text('No statements', style: TextStyle(color: AppColors.textMuted)))
+                  Center(child: Text(AppStrings.get('no_statements'), style: const TextStyle(color: AppColors.textMuted)))
                 else
                   ...statements.map((stmt) => Card(
                     child: ListTile(
-                      title: Text('Statement: ${stmt.statementDate}'),
+                      title: Text(AppStrings.format('statement_date', [stmt.statementDate])),
                       subtitle: Text(
-                        'Due: ${stmt.dueDate} \u2022 ${stmt.isFullyPaid == 1 ? 'Paid' : 'Unpaid'}',
+                        '${AppStrings.format('due_paid_status', [stmt.dueDate])} \u2022 ${stmt.isFullyPaid == 1 ? AppStrings.get('paid') : AppStrings.get('unpaid')}',
                         style: TextStyle(
                           color: stmt.isFullyPaid == 1 ? AppColors.success : AppColors.danger,
                           fontSize: 12,

@@ -5,8 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/engine.dart';
 import '../data/database.dart';
+import '../l10n/strings.dart';
 import '../providers/database_provider.dart';
 import '../providers/dashboard_provider.dart';
+import '../providers/friend_history_provider.dart';
+import '../theme/colors.dart';
 import '../widgets/modal_sheet.dart';
 import 'history_screen.dart' show historyProvider;
 import 'accounts_screen.dart' show accountsProvider;
@@ -15,7 +18,7 @@ import 'accounts_screen.dart' show accountsProvider;
 Future<bool?> showEditEventSheet(BuildContext context, WidgetRef ref, Event event) {
   return showAppModalSheet<bool>(
     context: context,
-    title: 'Edit Transaction',
+    title: AppStrings.get('edit_transaction'),
     child: _EditEventForm(event: event),
   );
 }
@@ -33,7 +36,7 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
   late TextEditingController _descriptionController;
   late String _selectedType;
   String? _selectedCategory;
-  String? _selectedFriendId;
+  final Set<String> _selectedFriendIds = {};
   String? _selectedAccountId;
   String? _selectedFromAccountId;
   String? _selectedToAccountId;
@@ -47,11 +50,19 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
     _descriptionController = TextEditingController(text: e.description ?? '');
     _selectedType = e.type;
     _selectedCategory = e.category;
-    _selectedFriendId = e.friendId;
+    if (e.friendId != null) _selectedFriendIds.add(e.friendId!);
     _selectedAccountId = e.accountId;
     _selectedFromAccountId = e.fromAccountId;
     _selectedToAccountId = e.toAccountId;
     _eventDate = DateTime.parse(e.eventDate);
+
+    // Pull existing multi-tags into the chip selection.
+    () async {
+      final tagged = await ref.read(eventDaoProvider).getTaggedFriends(e.id);
+      if (mounted) {
+        setState(() => _selectedFriendIds.addAll(tagged));
+      }
+    }();
   }
 
   @override
@@ -81,9 +92,9 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
         TextField(
           controller: _amountController,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          decoration: const InputDecoration(
-            labelText: 'Amount (\u20B9)',
-            prefixIcon: Icon(Icons.currency_rupee),
+          decoration: InputDecoration(
+            labelText: AppStrings.get('amount'),
+            prefixIcon: const Icon(Icons.currency_rupee),
           ),
         ),
         const SizedBox(height: 16),
@@ -91,9 +102,9 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
         // Description
         TextField(
           controller: _descriptionController,
-          decoration: const InputDecoration(
-            labelText: 'Description (optional)',
-            prefixIcon: Icon(Icons.notes),
+          decoration: InputDecoration(
+            labelText: AppStrings.get('description_optional'),
+            prefixIcon: const Icon(Icons.notes),
           ),
         ),
         const SizedBox(height: 16),
@@ -108,7 +119,7 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
                 padding: const EdgeInsets.only(bottom: 16),
                 child: DropdownButtonFormField<String>(
                   value: _selectedCategory,
-                  decoration: const InputDecoration(labelText: 'Category', prefixIcon: Icon(Icons.category)),
+                  decoration: InputDecoration(labelText: AppStrings.get('category'), prefixIcon: const Icon(Icons.category)),
                   items: categories.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
                   onChanged: (v) => setState(() => _selectedCategory = v),
                 ),
@@ -116,23 +127,51 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
             },
           ),
 
-        // Friend
-        if (_needsFriend)
-          FutureBuilder(
-            future: ref.read(friendDaoProvider).getFriends(),
-            builder: (context, snapshot) {
-              final friends = snapshot.data ?? [];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: DropdownButtonFormField<String>(
-                  value: _selectedFriendId,
-                  decoration: const InputDecoration(labelText: 'Friend', prefixIcon: Icon(Icons.person)),
-                  items: friends.map((f) => DropdownMenuItem(value: f.id, child: Text(f.name))).toList(),
-                  onChanged: (v) => setState(() => _selectedFriendId = v),
-                ),
-              );
-            },
-          ),
+        // Friends — primary single for settlement-types, optional multi-tag for the rest.
+        FutureBuilder(
+          future: ref.read(friendDaoProvider).getFriends(),
+          builder: (context, snapshot) {
+            final friends = snapshot.data ?? [];
+            if (friends.isEmpty) return const SizedBox.shrink();
+            final label = _needsFriend
+                ? AppStrings.get('friend')
+                : AppStrings.get('with_friends_optional');
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.people, color: AppColors.textMuted, size: 20),
+                      const SizedBox(width: 8),
+                      Text(label, style: const TextStyle(color: AppColors.textMuted)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: friends.map((f) {
+                      final selected = _selectedFriendIds.contains(f.id);
+                      return FilterChip(
+                        label: Text(f.name),
+                        selected: selected,
+                        onSelected: (on) => setState(() {
+                          if (on) {
+                            _selectedFriendIds.add(f.id);
+                          } else {
+                            _selectedFriendIds.remove(f.id);
+                          }
+                        }),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
 
         // Transfer accounts
         if (_isTransfer)
@@ -144,14 +183,14 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
                 children: [
                   DropdownButtonFormField<String>(
                     value: _selectedFromAccountId,
-                    decoration: const InputDecoration(labelText: 'From Account', prefixIcon: Icon(Icons.account_balance)),
+                    decoration: InputDecoration(labelText: AppStrings.get('from_account'), prefixIcon: const Icon(Icons.account_balance)),
                     items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
                     onChanged: (v) => setState(() => _selectedFromAccountId = v),
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     value: _selectedToAccountId,
-                    decoration: const InputDecoration(labelText: 'To Account', prefixIcon: Icon(Icons.account_balance)),
+                    decoration: InputDecoration(labelText: AppStrings.get('to_account'), prefixIcon: const Icon(Icons.account_balance)),
                     items: accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))).toList(),
                     onChanged: (v) => setState(() => _selectedToAccountId = v),
                   ),
@@ -171,9 +210,9 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
                 padding: const EdgeInsets.only(bottom: 16),
                 child: DropdownButtonFormField<String>(
                   value: _selectedAccountId,
-                  decoration: const InputDecoration(labelText: 'Account', prefixIcon: Icon(Icons.account_balance)),
+                  decoration: InputDecoration(labelText: AppStrings.get('account'), prefixIcon: const Icon(Icons.account_balance)),
                   items: [
-                    const DropdownMenuItem(value: null, child: Text('No account')),
+                    DropdownMenuItem(value: null, child: Text(AppStrings.get('no_account'))),
                     ...accounts.map((a) => DropdownMenuItem(value: a.id, child: Text(a.name))),
                   ],
                   onChanged: (v) => setState(() => _selectedAccountId = v),
@@ -186,9 +225,9 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
         InkWell(
           onTap: _pickDate,
           child: InputDecorator(
-            decoration: const InputDecoration(
-              labelText: 'Date',
-              prefixIcon: Icon(Icons.calendar_today),
+            decoration: InputDecoration(
+              labelText: AppStrings.get('date'),
+              prefixIcon: const Icon(Icons.calendar_today),
             ),
             child: Text(
               '${_eventDate.year}-${_eventDate.month.toString().padLeft(2, '0')}-${_eventDate.day.toString().padLeft(2, '0')}',
@@ -200,9 +239,9 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
 
         ElevatedButton(
           onPressed: _save,
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text('Save Changes', style: TextStyle(fontSize: 16)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(AppStrings.get('save_changes'), style: const TextStyle(fontSize: 16)),
           ),
         ),
         const SizedBox(height: 16),
@@ -225,16 +264,16 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
     final amountRupees = double.tryParse(amountText);
     if (amountRupees == null || amountRupees <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid amount')),
+        SnackBar(content: Text(AppStrings.get('invalid_amount'))),
       );
       return;
     }
 
     final confirmed = await showConfirmDialog(
       context: context,
-      title: 'Save Changes?',
-      message: 'This will update the transaction and adjust account balances.',
-      confirmText: 'Save',
+      title: AppStrings.get('save_changes_q'),
+      message: AppStrings.get('save_changes_msg'),
+      confirmText: AppStrings.get('save'),
     );
     if (!confirmed) return;
 
@@ -278,6 +317,10 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
       }
 
       // 3. Update event
+      final friendList = _selectedFriendIds.toList();
+      final primaryFriendId =
+          _needsFriend && friendList.isNotEmpty ? friendList.first : null;
+
       await eventDao.updateEvent(
         old.id,
         type: _selectedType,
@@ -286,12 +329,20 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
         description: _descriptionController.text.trim().isNotEmpty
             ? _descriptionController.text.trim()
             : null,
-        friendId: _needsFriend ? _selectedFriendId : null,
+        friendId: primaryFriendId,
         accountId: _isTransfer ? null : _selectedAccountId,
         fromAccountId: _isTransfer ? _selectedFromAccountId : null,
         toAccountId: _isTransfer ? _selectedToAccountId : null,
         eventDate: newDateStr,
       );
+
+      await eventDao.tagFriends(old.id, friendList);
+      if (old.friendId != null) {
+        ref.invalidate(friendHistoryProvider(old.friendId!));
+      }
+      for (final fid in friendList) {
+        ref.invalidate(friendHistoryProvider(fid));
+      }
 
       // 4. Audit log
       await auditDao.createAuditLog(
@@ -324,7 +375,7 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transaction updated!')),
+          SnackBar(content: Text(AppStrings.get('transaction_updated'))),
         );
         Navigator.pop(context, true);
       }

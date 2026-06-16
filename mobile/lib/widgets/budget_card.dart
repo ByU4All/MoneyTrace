@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../l10n/strings.dart';
 import '../theme/colors.dart';
 import 'amount_display.dart';
 import 'progress_bar.dart';
@@ -48,7 +49,7 @@ class BudgetCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Budget',
+                    AppStrings.get('budget'),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   AmountDisplay(
@@ -61,7 +62,7 @@ class BudgetCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                'of ${formatAmount(baseBudget)} remaining',
+                AppStrings.format('of_remaining', [formatAmount(baseBudget)]),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 12),
@@ -78,7 +79,7 @@ class BudgetCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _StatItem(
-                    label: 'Spent',
+                    label: AppStrings.get('spent'),
                     amount: spent,
                     color: AppColors.danger,
                   ),
@@ -89,7 +90,7 @@ class BudgetCard extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.all(12),
                         child: _StatItem(
-                          label: 'Reserved',
+                          label: AppStrings.get('reserved'),
                           amount: unpaidCommitments,
                           color: AppColors.info,
                         ),
@@ -101,7 +102,7 @@ class BudgetCard extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: _StatItem(
-                        label: 'You Owe',
+                        label: AppStrings.get('you_owe'),
                         amount: liabilities,
                         color: AppColors.warning,
                       ),
@@ -113,7 +114,7 @@ class BudgetCard extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: _StatItem(
-                        label: 'Owed to You',
+                        label: AppStrings.get('owed_to_you'),
                         amount: receivables,
                         color: AppColors.success,
                       ),

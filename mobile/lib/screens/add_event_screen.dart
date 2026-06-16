@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/events.dart';
+import '../l10n/strings.dart';
 import '../providers/database_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../theme/colors.dart';
@@ -25,20 +26,20 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
   final _descriptionController = TextEditingController();
 
   String? _selectedCategory;
-  String? _selectedFriendId;
+  final Set<String> _selectedFriendIds = {};
   String? _selectedAccountId;
   String? _selectedFromAccountId;
   String? _selectedToAccountId;
   DateTime _eventDate = DateTime.now();
 
-  // Tab-to-event-type mapping
-  static const _tabs = [
-    ('Expense', EventType.expense),
-    ('Income', EventType.income),
-    ('Transfer', EventType.transfer),
-    ('I Owe', EventType.liability),
-    ('Owes Me', EventType.receivable),
-    ('Settle', null), // Determined by sub-selection
+  // Tab-to-event-type mapping (keys for l10n)
+  static const _tabKeys = [
+    ('tab_expense', EventType.expense),
+    ('tab_income', EventType.income),
+    ('tab_transfer', EventType.transfer),
+    ('tab_i_owe', EventType.liability),
+    ('tab_owes_me', EventType.receivable),
+    ('tab_settle', null), // Determined by sub-selection
   ];
 
   bool _isSettlePaid = true; // For settle tab
@@ -46,7 +47,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController = TabController(length: _tabKeys.length, vsync: this);
   }
 
   @override
@@ -64,7 +65,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
           ? EventType.settlementPaid
           : EventType.settlementReceived;
     }
-    return _tabs[idx].$2!;
+    return _tabKeys[idx].$2!;
   }
 
   bool get _needsFriend {
@@ -97,7 +98,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Transaction'),
+        title: Text(AppStrings.get('add_transaction')),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -105,7 +106,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
           labelColor: AppColors.accent,
           unselectedLabelColor: AppColors.textMuted,
           onTap: (_) => setState(() {}),
-          tabs: _tabs.map((t) => Tab(text: t.$1)).toList(),
+          tabs: _tabKeys.map((t) => Tab(text: AppStrings.get(t.$1))).toList(),
         ),
       ),
       body: SingleChildScrollView(
@@ -118,9 +119,9 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: true, label: Text('I Paid')),
-                    ButtonSegment(value: false, label: Text('I Received')),
+                  segments: [
+                    ButtonSegment(value: true, label: Text(AppStrings.get('i_paid'))),
+                    ButtonSegment(value: false, label: Text(AppStrings.get('i_received'))),
                   ],
                   selected: {_isSettlePaid},
                   onSelectionChanged: (v) =>
@@ -133,8 +134,8 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
               controller: _amountController,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Amount (\u20B9)',
+              decoration: InputDecoration(
+                labelText: AppStrings.get('amount'),
                 prefixIcon: Icon(Icons.currency_rupee),
               ),
               autofocus: true,
@@ -144,9 +145,9 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
             // Description
             TextField(
               controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Description (optional)',
-                prefixIcon: Icon(Icons.notes),
+              decoration: InputDecoration(
+                labelText: AppStrings.get('description_optional'),
+                prefixIcon: const Icon(Icons.notes),
               ),
             ),
             const SizedBox(height: 16),
@@ -162,9 +163,9 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                   final categories = snapshot.data ?? [];
                   return DropdownButtonFormField<String>(
                     value: _selectedCategory,
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      prefixIcon: Icon(Icons.category),
+                    decoration: InputDecoration(
+                      labelText: AppStrings.get('category'),
+                      prefixIcon: const Icon(Icons.category),
                     ),
                     items: categories
                         .map((c) => DropdownMenuItem(
@@ -177,30 +178,51 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                 },
               ),
 
-            // Friend (for liability/receivable/settlement)
-            if (_needsFriend) ...[
-              const SizedBox(height: 16),
-              FutureBuilder(
-                future: ref.read(friendDaoProvider).getFriends(),
-                builder: (context, snapshot) {
-                  final friends = snapshot.data ?? [];
-                  return DropdownButtonFormField<String>(
-                    value: _selectedFriendId,
-                    decoration: const InputDecoration(
-                      labelText: 'Friend',
-                      prefixIcon: Icon(Icons.person),
+            // Friend tagging — required for liability/receivable/settlement (single
+            // primary friend), optional multi-select tag on every other type.
+            const SizedBox(height: 16),
+            FutureBuilder(
+              future: ref.read(friendDaoProvider).getFriends(),
+              builder: (context, snapshot) {
+                final friends = snapshot.data ?? [];
+                if (friends.isEmpty) return const SizedBox.shrink();
+                final label = _needsFriend
+                    ? AppStrings.get('friend')
+                    : AppStrings.get('with_friends_optional');
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.people, color: AppColors.textMuted, size: 20),
+                        const SizedBox(width: 8),
+                        Text(label,
+                            style: const TextStyle(color: AppColors.textMuted)),
+                      ],
                     ),
-                    items: friends
-                        .map((f) => DropdownMenuItem(
-                              value: f.id,
-                              child: Text(f.name),
-                            ))
-                        .toList(),
-                    onChanged: (v) => setState(() => _selectedFriendId = v),
-                  );
-                },
-              ),
-            ],
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: friends.map((f) {
+                        final selected = _selectedFriendIds.contains(f.id);
+                        return FilterChip(
+                          label: Text(f.name),
+                          selected: selected,
+                          onSelected: (on) => setState(() {
+                            if (on) {
+                              _selectedFriendIds.add(f.id);
+                            } else {
+                              _selectedFriendIds.remove(f.id);
+                            }
+                          }),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                );
+              },
+            ),
 
             // Transfer accounts
             if (_needsTransferAccounts) ...[
@@ -213,9 +235,9 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                     children: [
                       DropdownButtonFormField<String>(
                         value: _selectedFromAccountId,
-                        decoration: const InputDecoration(
-                          labelText: 'From Account',
-                          prefixIcon: Icon(Icons.account_balance),
+                        decoration: InputDecoration(
+                          labelText: AppStrings.get('from_account'),
+                          prefixIcon: const Icon(Icons.account_balance),
                         ),
                         items: accounts
                             .map((a) => DropdownMenuItem(
@@ -229,9 +251,9 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                       const SizedBox(height: 16),
                       DropdownButtonFormField<String>(
                         value: _selectedToAccountId,
-                        decoration: const InputDecoration(
-                          labelText: 'To Account',
-                          prefixIcon: Icon(Icons.account_balance),
+                        decoration: InputDecoration(
+                          labelText: AppStrings.get('to_account'),
+                          prefixIcon: const Icon(Icons.account_balance),
                         ),
                         items: accounts
                             .map((a) => DropdownMenuItem(
@@ -264,13 +286,13 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                   return DropdownButtonFormField<String>(
                     value: _selectedAccountId,
                     decoration: InputDecoration(
-                      labelText: _requiresAccount ? 'Account (required)' : 'Account (optional)',
+                      labelText: _requiresAccount ? AppStrings.get('account_required') : AppStrings.get('account_optional'),
                       prefixIcon: const Icon(Icons.account_balance),
                     ),
                     items: [
                       if (!_requiresAccount)
-                        const DropdownMenuItem(
-                            value: null, child: Text('No account')),
+                        DropdownMenuItem(
+                            value: null, child: Text(AppStrings.get('no_account'))),
                       ...accounts.map((a) => DropdownMenuItem(
                             value: a.id,
                             child: Text(a.name),
@@ -287,9 +309,9 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
             InkWell(
               onTap: _pickDate,
               child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Date',
-                  prefixIcon: Icon(Icons.calendar_today),
+                decoration: InputDecoration(
+                  labelText: AppStrings.get('date'),
+                  prefixIcon: const Icon(Icons.calendar_today),
                 ),
                 child: Text(
                   '${_eventDate.year}-${_eventDate.month.toString().padLeft(2, '0')}-${_eventDate.day.toString().padLeft(2, '0')}',
@@ -304,7 +326,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   icon: const Icon(Icons.repeat, size: 16),
-                  label: const Text('Complete a Recurring?'),
+                  label: Text(AppStrings.get('complete_a_recurring')),
                   onPressed: () => _showPendingRecurring(),
                 ),
               ),
@@ -315,9 +337,9 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
             // Submit
             ElevatedButton(
               onPressed: _submit,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('Add Transaction', style: TextStyle(fontSize: 16)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(AppStrings.get('add_transaction'), style: const TextStyle(fontSize: 16)),
               ),
             ),
           ],
@@ -335,7 +357,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
     if (!mounted) return;
     if (pending.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No pending recurring transactions')),
+        SnackBar(content: Text(AppStrings.get('no_pending_recurring'))),
       );
       return;
     }
@@ -350,7 +372,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
         shrinkWrap: true,
         padding: const EdgeInsets.all(16),
         children: [
-          const Text('Select Recurring', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          Text(AppStrings.get('select_recurring'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           ...pending.map((rec) => ListTile(
             title: Text(rec.name),
@@ -387,7 +409,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter an amount')),
+        SnackBar(content: Text(AppStrings.get('please_enter_amount'))),
       );
       return;
     }
@@ -395,7 +417,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
     final amountRupees = double.tryParse(amountText);
     if (amountRupees == null || amountRupees <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid amount')),
+        SnackBar(content: Text(AppStrings.get('invalid_amount'))),
       );
       return;
     }
@@ -403,7 +425,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
     // Validate required account
     if (_requiresAccount && !_needsTransferAccounts && _selectedAccountId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select an account')),
+        SnackBar(content: Text(AppStrings.get('please_select_account'))),
       );
       return;
     }
@@ -411,7 +433,15 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
     // Validate transfer accounts
     if (_needsTransferAccounts && (_selectedFromAccountId == null || _selectedToAccountId == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select both From and To accounts')),
+        SnackBar(content: Text(AppStrings.get('please_select_both_accounts'))),
+      );
+      return;
+    }
+
+    // Settlement-like types require a single primary friend; block until set.
+    if (_needsFriend && _selectedFriendIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.get('friend'))),
       );
       return;
     }
@@ -422,19 +452,29 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
 
     try {
       final eventDao = ref.read(eventDaoProvider);
-      await eventDao.createEvent(
+      // First selected friend goes to the legacy primary friend_id (for balance);
+      // any additional selections become history-only multi-tags.
+      final friendList = _selectedFriendIds.toList();
+      final primaryFriendId =
+          _needsFriend && friendList.isNotEmpty ? friendList.first : null;
+
+      final eventId = await eventDao.createEvent(
         type: _currentEventType.value,
         amount: amountPaise,
         category: _needsCategory ? _selectedCategory : null,
         description: _descriptionController.text.trim().isNotEmpty
             ? _descriptionController.text.trim()
             : null,
-        friendId: _needsFriend ? _selectedFriendId : null,
+        friendId: primaryFriendId,
         accountId: _needsTransferAccounts ? null : _selectedAccountId,
         fromAccountId: _needsTransferAccounts ? _selectedFromAccountId : null,
         toAccountId: _needsTransferAccounts ? _selectedToAccountId : null,
         eventDate: dateStr,
       );
+
+      if (friendList.isNotEmpty) {
+        await eventDao.tagFriends(eventId, friendList);
+      }
 
       // Update account balances
       if (_needsTransferAccounts) {
@@ -465,7 +505,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transaction added!')),
+          SnackBar(content: Text(AppStrings.get('transaction_added'))),
         );
         Navigator.pop(context);
       }

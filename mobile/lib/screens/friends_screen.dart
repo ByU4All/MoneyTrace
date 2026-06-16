@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/engine.dart';
 import '../data/database.dart';
+import '../l10n/strings.dart';
+import '../providers/dashboard_provider.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart';
+import 'friend_history_screen.dart';
 
 final friendsProvider = FutureProvider.autoDispose<List<Friend>>((ref) async {
   return ref.watch(friendDaoProvider).getFriends();
@@ -25,7 +28,7 @@ class FriendsScreen extends ConsumerWidget {
     final balancesAsync = ref.watch(friendBalancesProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Friends')),
+      appBar: AppBar(title: Text(AppStrings.get('friends'))),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddFriendSheet(context, ref),
         child: const Icon(Icons.person_add),
@@ -35,8 +38,9 @@ class FriendsScreen extends ConsumerWidget {
         error: (err, _) => Center(child: Text('Error: $err')),
         data: (friends) {
           if (friends.isEmpty) {
-            return const Center(
-              child: Text('No friends added yet', style: TextStyle(color: AppColors.textMuted)),
+            return Center(
+              child: Text(AppStrings.get('no_friends_yet'),
+                  style: const TextStyle(color: AppColors.textMuted)),
             );
           }
 
@@ -61,10 +65,10 @@ class FriendsScreen extends ConsumerWidget {
                   title: Text(friend.name),
                   subtitle: Text(
                     balance > 0
-                        ? 'Owes you ${formatAmount(balance)}'
+                        ? AppStrings.format('owes_you', [formatAmount(balance)])
                         : balance < 0
-                            ? 'You owe ${formatAmount(-balance)}'
-                            : 'Settled up',
+                            ? AppStrings.format('you_owe_amount', [formatAmount(-balance)])
+                            : AppStrings.get('settled_up'),
                     style: TextStyle(
                       color: balance > 0
                           ? AppColors.success
@@ -74,15 +78,35 @@ class FriendsScreen extends ConsumerWidget {
                       fontSize: 12,
                     ),
                   ),
-                  trailing: balance != 0
-                      ? AmountDisplay(
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (balance != 0)
+                        AmountDisplay(
                           amount: balance,
                           showSign: true,
                           colorize: true,
                           style: const TextStyle(fontWeight: FontWeight.w600),
-                        )
-                      : null,
-                  onTap: () => _showFriendDetail(context, ref, friend, balance),
+                        ),
+                      PopupMenuButton<String>(
+                        itemBuilder: (ctx) => [
+                          PopupMenuItem(
+                              value: 'delete',
+                              child: Text(AppStrings.get('delete'),
+                                  style: const TextStyle(color: AppColors.danger))),
+                        ],
+                        onSelected: (v) {
+                          if (v == 'delete') _confirmDeleteFriend(context, ref, friend);
+                        },
+                      ),
+                    ],
+                  ),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => FriendHistoryScreen(friend: friend),
+                    ),
+                  ),
                 ),
               );
             },
@@ -112,17 +136,18 @@ class FriendsScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Add Friend', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text(AppStrings.get('add_friend'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 16),
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(labelText: 'Name'),
+              decoration: InputDecoration(labelText: AppStrings.get('name')),
               autofocus: true,
             ),
             const SizedBox(height: 12),
             TextField(
               controller: phoneController,
-              decoration: const InputDecoration(labelText: 'Phone (optional)'),
+              decoration: InputDecoration(labelText: AppStrings.get('phone_optional')),
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 16),
@@ -130,15 +155,15 @@ class FriendsScreen extends ConsumerWidget {
               onPressed: () async {
                 if (nameController.text.trim().isEmpty) return;
                 await ref.read(friendDaoProvider).createFriend(
-                  name: nameController.text.trim(),
-                  phone: phoneController.text.trim().isNotEmpty
-                      ? phoneController.text.trim()
-                      : null,
-                );
+                      name: nameController.text.trim(),
+                      phone: phoneController.text.trim().isNotEmpty
+                          ? phoneController.text.trim()
+                          : null,
+                    );
                 ref.invalidate(friendsProvider);
                 if (context.mounted) Navigator.pop(context);
               },
-              child: const Text('Add Friend'),
+              child: Text(AppStrings.get('add_friend')),
             ),
           ],
         ),
@@ -146,75 +171,87 @@ class FriendsScreen extends ConsumerWidget {
     );
   }
 
-  void _showFriendDetail(BuildContext context, WidgetRef ref, Friend friend, int balance) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: AppColors.surfaceLight,
-              child: Text(friend.name[0].toUpperCase(),
-                  style: const TextStyle(fontSize: 24, color: AppColors.accent)),
-            ),
-            const SizedBox(height: 8),
-            Text(friend.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-            if (friend.phone != null) Text(friend.phone!, style: const TextStyle(color: AppColors.textMuted)),
-            const SizedBox(height: 16),
-            Text(
-              balance > 0
-                  ? 'Owes you'
-                  : balance < 0
-                      ? 'You owe'
-                      : 'Settled up',
-              style: const TextStyle(color: AppColors.textMuted),
-            ),
-            AmountDisplay(
-              amount: balance.abs(),
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: balance > 0 ? AppColors.success : balance < 0 ? AppColors.danger : AppColors.textMuted,
-              ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () async {
-                final confirm = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Delete Friend?'),
-                    content: Text('Remove "${friend.name}"?'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                      ElevatedButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-                        child: const Text('Delete'),
-                      ),
-                    ],
-                  ),
-                );
-                if (confirm == true) {
-                  await ref.read(friendDaoProvider).deleteFriend(friend.id);
-                  ref.invalidate(friendsProvider);
-                  ref.invalidate(friendBalancesProvider);
-                  if (context.mounted) Navigator.pop(context);
-                }
-              },
-              icon: const Icon(Icons.delete, color: AppColors.danger),
-              label: const Text('Delete', style: TextStyle(color: AppColors.danger)),
+  Future<void> _confirmDeleteFriend(
+      BuildContext context, WidgetRef ref, Friend friend) async {
+    final eventDao = ref.read(eventDaoProvider);
+    final linked = await eventDao.getEventsByFriend(friend.id);
+    final friendBalances = computeFriendBalances(
+      await eventDao.getEventsAsMaps(),
+    );
+    final balance = friendBalances[friend.id] ?? 0;
+
+    if (!context.mounted) return;
+
+    if (linked.isEmpty) {
+      // No transactions — straight delete confirmation.
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(AppStrings.get('delete_friend_q')),
+          content: Text(AppStrings.format('remove_name', [friend.name])),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(AppStrings.get('cancel'))),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+              child: Text(AppStrings.get('delete')),
             ),
           ],
         ),
+      );
+      if (confirm == true) {
+        await ref.read(friendDaoProvider).deleteFriend(friend.id);
+        ref.invalidate(friendsProvider);
+        ref.invalidate(friendBalancesProvider);
+        ref.invalidate(dashboardProvider);
+      }
+      return;
+    }
+
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(AppStrings.get('delete_friend_q')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(AppStrings.format('delete_friend_with_count',
+                [friend.name, '${linked.length}', formatAmount(balance.abs())])),
+            const SizedBox(height: 12),
+            Text(AppStrings.get('delete_friend_choose'),
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              child: Text(AppStrings.get('cancel'))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, 'unlink'),
+              child: Text(AppStrings.get('keep_unlink'))),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, 'delete_all'),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
+            child: Text(AppStrings.get('delete_with_events')),
+          ),
+        ],
       ),
     );
+
+    if (choice == null || choice == 'cancel') return;
+
+    if (choice == 'unlink') {
+      await eventDao.unlinkFriend(friend.id);
+    } else if (choice == 'delete_all') {
+      await eventDao.deleteEventsByFriend(friend.id);
+    }
+    await ref.read(friendDaoProvider).deleteFriend(friend.id);
+
+    ref.invalidate(friendsProvider);
+    ref.invalidate(friendBalancesProvider);
+    ref.invalidate(dashboardProvider);
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../l10n/strings.dart';
 import '../providers/dashboard_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart' show AmountDisplay, formatAmount, colorForEventType, signedAmount;
@@ -17,7 +18,7 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MoneyTrace'),
+        title: const Text('MoneyTrace'), // App name stays English
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
@@ -50,7 +51,7 @@ class DashboardScreen extends ConsumerWidget {
                     : null,
                 onLiabilitiesTap: () => _showBalanceSheet(
                   context,
-                  title: 'You Owe',
+                  title: AppStrings.get('you_owe'),
                   totalAmount: data.liabilities,
                   friendBalances: data.friendBalances,
                   friendNames: data.friendNames,
@@ -58,7 +59,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
                 onReceivablesTap: () => _showBalanceSheet(
                   context,
-                  title: 'Owed to You',
+                  title: AppStrings.get('owed_to_you'),
                   totalAmount: data.receivables,
                   friendBalances: data.friendBalances,
                   friendNames: data.friendNames,
@@ -69,10 +70,53 @@ class DashboardScreen extends ConsumerWidget {
               const Divider(color: AppColors.surfaceLight, thickness: 1),
               const SizedBox(height: 8),
 
+              if (data.onHoldItems.isNotEmpty) ...[
+                Row(
+                  children: [
+                    const Icon(Icons.lock_clock, size: 18, color: AppColors.info),
+                    const SizedBox(width: 8),
+                    Text(AppStrings.get('on_hold'),
+                        style: Theme.of(context).textTheme.titleMedium),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  AppStrings.get('on_hold_subtitle'),
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      children: data.onHoldItems.map((item) {
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.lock_outline, color: AppColors.info, size: 20),
+                          title: Text(item['name'] as String),
+                          subtitle: Text(
+                            item['reason'] as String? ?? '',
+                            style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
+                          ),
+                          trailing: AmountDisplay(
+                            amount: item['amount'] as int,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, color: AppColors.info),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Divider(color: AppColors.surfaceLight, thickness: 1),
+                const SizedBox(height: 8),
+              ],
+
               // Category Spending
               if (data.categorySpend.isNotEmpty) ...[
                 Text(
-                  'Spending by Category',
+                  AppStrings.get('spending_by_category'),
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
@@ -126,18 +170,18 @@ class DashboardScreen extends ConsumerWidget {
 
               // Recent Activity
               Text(
-                'Recent Activity',
+                AppStrings.get('recent_activity'),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
               if (data.recentEvents.isEmpty)
-                const Card(
+                Card(
                   child: Padding(
-                    padding: EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(24),
                     child: Center(
                       child: Text(
-                        'No transactions yet',
-                        style: TextStyle(color: AppColors.textMuted),
+                        AppStrings.get('no_transactions_yet'),
+                        style: const TextStyle(color: AppColors.textMuted),
                       ),
                     ),
                   ),
@@ -148,7 +192,7 @@ class DashboardScreen extends ConsumerWidget {
                         leading: AppIcons.eventIcon(event['type'] as String),
                         title: Text(
                           event['description'] as String? ??
-                              _eventTypeName(event['type'] as String),
+                              AppStrings.eventTypeName(event['type'] as String),
                         ),
                         subtitle: Text(
                           '${event['category'] ?? ''} \u2022 ${event['event_date']}',
@@ -166,7 +210,7 @@ class DashboardScreen extends ConsumerWidget {
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () => Navigator.pushNamed(context, '/history'),
-                    child: const Text('View All'),
+                    child: Text(AppStrings.get('view_all')),
                   ),
                 ),
               ],
@@ -194,8 +238,8 @@ class DashboardScreen extends ConsumerWidget {
           controller: scrollController,
           padding: const EdgeInsets.all(16),
           children: [
-            const Center(
-              child: Text('Reserved', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Center(
+              child: Text(AppStrings.get('reserved'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             ),
             const SizedBox(height: 8),
             Center(
@@ -209,10 +253,10 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 4),
-            const Center(
+            Center(
               child: Text(
-                'Unpaid recurring this month',
-                style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                AppStrings.get('unpaid_recurring_this_month'),
+                style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
             ),
             const SizedBox(height: 16),
@@ -227,7 +271,7 @@ class DashboardScreen extends ConsumerWidget {
               ),
               title: Text(item['name'] as String),
               subtitle: Text(
-                item['type'] == 'emi_payment' ? 'EMI Payment' : 'Expense',
+                AppStrings.eventTypeName(item['type'] as String),
                 style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
               trailing: AmountDisplay(
@@ -288,10 +332,10 @@ class DashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             if (entries.isEmpty)
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('No balances', style: TextStyle(color: AppColors.textMuted)),
+                  padding: const EdgeInsets.all(24),
+                  child: Text(AppStrings.get('no_balances'), style: const TextStyle(color: AppColors.textMuted)),
                 ),
               )
             else
@@ -320,19 +364,4 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  String _eventTypeName(String type) {
-    final names = {
-      'expense': 'Expense',
-      'liability': 'I Owe',
-      'receivable': 'Owes Me',
-      'settlement_paid': 'Settled (Paid)',
-      'settlement_received': 'Settled (Received)',
-      'budget_adjustment': 'Adjustment',
-      'transfer': 'Transfer',
-      'income': 'Income',
-      'credit_card_payment': 'CC Payment',
-      'emi_payment': 'EMI Payment',
-    };
-    return names[type] ?? type;
-  }
 }

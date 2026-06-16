@@ -6099,6 +6099,244 @@ class AuditLogCompanion extends UpdateCompanion<AuditLogData> {
   }
 }
 
+class $EventFriendsTable extends EventFriends
+    with TableInfo<$EventFriendsTable, EventFriend> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $EventFriendsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _eventIdMeta =
+      const VerificationMeta('eventId');
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+      'event_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _friendIdMeta =
+      const VerificationMeta('friendId');
+  @override
+  late final GeneratedColumn<String> friendId = GeneratedColumn<String>(
+      'friend_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _shareAmountMeta =
+      const VerificationMeta('shareAmount');
+  @override
+  late final GeneratedColumn<int> shareAmount = GeneratedColumn<int>(
+      'share_amount', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [eventId, friendId, shareAmount];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'event_friends';
+  @override
+  VerificationContext validateIntegrity(Insertable<EventFriend> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('event_id')) {
+      context.handle(_eventIdMeta,
+          eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta));
+    } else if (isInserting) {
+      context.missing(_eventIdMeta);
+    }
+    if (data.containsKey('friend_id')) {
+      context.handle(_friendIdMeta,
+          friendId.isAcceptableOrUnknown(data['friend_id']!, _friendIdMeta));
+    } else if (isInserting) {
+      context.missing(_friendIdMeta);
+    }
+    if (data.containsKey('share_amount')) {
+      context.handle(
+          _shareAmountMeta,
+          shareAmount.isAcceptableOrUnknown(
+              data['share_amount']!, _shareAmountMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {eventId, friendId};
+  @override
+  EventFriend map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return EventFriend(
+      eventId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}event_id'])!,
+      friendId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}friend_id'])!,
+      shareAmount: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}share_amount']),
+    );
+  }
+
+  @override
+  $EventFriendsTable createAlias(String alias) {
+    return $EventFriendsTable(attachedDatabase, alias);
+  }
+}
+
+class EventFriend extends DataClass implements Insertable<EventFriend> {
+  final String eventId;
+  final String friendId;
+  final int? shareAmount;
+  const EventFriend(
+      {required this.eventId, required this.friendId, this.shareAmount});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['event_id'] = Variable<String>(eventId);
+    map['friend_id'] = Variable<String>(friendId);
+    if (!nullToAbsent || shareAmount != null) {
+      map['share_amount'] = Variable<int>(shareAmount);
+    }
+    return map;
+  }
+
+  EventFriendsCompanion toCompanion(bool nullToAbsent) {
+    return EventFriendsCompanion(
+      eventId: Value(eventId),
+      friendId: Value(friendId),
+      shareAmount: shareAmount == null && nullToAbsent
+          ? const Value.absent()
+          : Value(shareAmount),
+    );
+  }
+
+  factory EventFriend.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return EventFriend(
+      eventId: serializer.fromJson<String>(json['eventId']),
+      friendId: serializer.fromJson<String>(json['friendId']),
+      shareAmount: serializer.fromJson<int?>(json['shareAmount']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'eventId': serializer.toJson<String>(eventId),
+      'friendId': serializer.toJson<String>(friendId),
+      'shareAmount': serializer.toJson<int?>(shareAmount),
+    };
+  }
+
+  EventFriend copyWith(
+          {String? eventId,
+          String? friendId,
+          Value<int?> shareAmount = const Value.absent()}) =>
+      EventFriend(
+        eventId: eventId ?? this.eventId,
+        friendId: friendId ?? this.friendId,
+        shareAmount: shareAmount.present ? shareAmount.value : this.shareAmount,
+      );
+  EventFriend copyWithCompanion(EventFriendsCompanion data) {
+    return EventFriend(
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      friendId: data.friendId.present ? data.friendId.value : this.friendId,
+      shareAmount:
+          data.shareAmount.present ? data.shareAmount.value : this.shareAmount,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EventFriend(')
+          ..write('eventId: $eventId, ')
+          ..write('friendId: $friendId, ')
+          ..write('shareAmount: $shareAmount')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(eventId, friendId, shareAmount);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is EventFriend &&
+          other.eventId == this.eventId &&
+          other.friendId == this.friendId &&
+          other.shareAmount == this.shareAmount);
+}
+
+class EventFriendsCompanion extends UpdateCompanion<EventFriend> {
+  final Value<String> eventId;
+  final Value<String> friendId;
+  final Value<int?> shareAmount;
+  final Value<int> rowid;
+  const EventFriendsCompanion({
+    this.eventId = const Value.absent(),
+    this.friendId = const Value.absent(),
+    this.shareAmount = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  EventFriendsCompanion.insert({
+    required String eventId,
+    required String friendId,
+    this.shareAmount = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : eventId = Value(eventId),
+        friendId = Value(friendId);
+  static Insertable<EventFriend> custom({
+    Expression<String>? eventId,
+    Expression<String>? friendId,
+    Expression<int>? shareAmount,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (eventId != null) 'event_id': eventId,
+      if (friendId != null) 'friend_id': friendId,
+      if (shareAmount != null) 'share_amount': shareAmount,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  EventFriendsCompanion copyWith(
+      {Value<String>? eventId,
+      Value<String>? friendId,
+      Value<int?>? shareAmount,
+      Value<int>? rowid}) {
+    return EventFriendsCompanion(
+      eventId: eventId ?? this.eventId,
+      friendId: friendId ?? this.friendId,
+      shareAmount: shareAmount ?? this.shareAmount,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (friendId.present) {
+      map['friend_id'] = Variable<String>(friendId.value);
+    }
+    if (shareAmount.present) {
+      map['share_amount'] = Variable<int>(shareAmount.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EventFriendsCompanion(')
+          ..write('eventId: $eventId, ')
+          ..write('friendId: $friendId, ')
+          ..write('shareAmount: $shareAmount, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -6118,6 +6356,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CreditCardStatementsTable creditCardStatements =
       $CreditCardStatementsTable(this);
   late final $AuditLogTable auditLog = $AuditLogTable(this);
+  late final $EventFriendsTable eventFriends = $EventFriendsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6134,7 +6373,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         loans,
         loanEmiSchedule,
         creditCardStatements,
-        auditLog
+        auditLog,
+        eventFriends
       ];
 }
 
@@ -8560,6 +8800,102 @@ class $$AuditLogTableOrderingComposer
           ColumnOrderings(column, joinBuilders: joinBuilders));
 }
 
+typedef $$EventFriendsTableCreateCompanionBuilder = EventFriendsCompanion
+    Function({
+  required String eventId,
+  required String friendId,
+  Value<int?> shareAmount,
+  Value<int> rowid,
+});
+typedef $$EventFriendsTableUpdateCompanionBuilder = EventFriendsCompanion
+    Function({
+  Value<String> eventId,
+  Value<String> friendId,
+  Value<int?> shareAmount,
+  Value<int> rowid,
+});
+
+class $$EventFriendsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $EventFriendsTable,
+    EventFriend,
+    $$EventFriendsTableFilterComposer,
+    $$EventFriendsTableOrderingComposer,
+    $$EventFriendsTableCreateCompanionBuilder,
+    $$EventFriendsTableUpdateCompanionBuilder> {
+  $$EventFriendsTableTableManager(_$AppDatabase db, $EventFriendsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          filteringComposer:
+              $$EventFriendsTableFilterComposer(ComposerState(db, table)),
+          orderingComposer:
+              $$EventFriendsTableOrderingComposer(ComposerState(db, table)),
+          updateCompanionCallback: ({
+            Value<String> eventId = const Value.absent(),
+            Value<String> friendId = const Value.absent(),
+            Value<int?> shareAmount = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              EventFriendsCompanion(
+            eventId: eventId,
+            friendId: friendId,
+            shareAmount: shareAmount,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String eventId,
+            required String friendId,
+            Value<int?> shareAmount = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              EventFriendsCompanion.insert(
+            eventId: eventId,
+            friendId: friendId,
+            shareAmount: shareAmount,
+            rowid: rowid,
+          ),
+        ));
+}
+
+class $$EventFriendsTableFilterComposer
+    extends FilterComposer<_$AppDatabase, $EventFriendsTable> {
+  $$EventFriendsTableFilterComposer(super.$state);
+  ColumnFilters<String> get eventId => $state.composableBuilder(
+      column: $state.table.eventId,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get friendId => $state.composableBuilder(
+      column: $state.table.friendId,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<int> get shareAmount => $state.composableBuilder(
+      column: $state.table.shareAmount,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+}
+
+class $$EventFriendsTableOrderingComposer
+    extends OrderingComposer<_$AppDatabase, $EventFriendsTable> {
+  $$EventFriendsTableOrderingComposer(super.$state);
+  ColumnOrderings<String> get eventId => $state.composableBuilder(
+      column: $state.table.eventId,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get friendId => $state.composableBuilder(
+      column: $state.table.friendId,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<int> get shareAmount => $state.composableBuilder(
+      column: $state.table.shareAmount,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+}
+
 class $AppDatabaseManager {
   final _$AppDatabase _db;
   $AppDatabaseManager(this._db);
@@ -8587,4 +8923,6 @@ class $AppDatabaseManager {
       $$CreditCardStatementsTableTableManager(_db, _db.creditCardStatements);
   $$AuditLogTableTableManager get auditLog =>
       $$AuditLogTableTableManager(_db, _db.auditLog);
+  $$EventFriendsTableTableManager get eventFriends =>
+      $$EventFriendsTableTableManager(_db, _db.eventFriends);
 }

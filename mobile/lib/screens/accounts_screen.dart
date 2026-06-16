@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/budget.dart';
 import '../data/database.dart';
+import '../l10n/strings.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
@@ -12,20 +14,62 @@ final accountsProvider = FutureProvider.autoDispose<List<Account>>((ref) async {
   return ref.watch(accountDaoProvider).getAccounts();
 });
 
+/// Sum of autopay recurring amounts (this period) per account, used to render
+/// "On hold: ₹X" subtitles next to each account card.
+final accountOnHoldProvider =
+    FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  final recurringDao = ref.watch(recurringDaoProvider);
+  final settingsDao = ref.watch(settingsDaoProvider);
+  final eventDao = ref.watch(eventDaoProvider);
+
+  final now = DateTime.now();
+  final resetDay = await settingsDao.getBudgetResetDay();
+  final (year, month) = getBudgetPeriod(now, resetDay);
+  final periodStart = DateTime(year, month, resetDay);
+  final periodEnd = DateTime(year, month + 1, resetDay)
+      .subtract(const Duration(days: 1));
+
+  final events = await eventDao.getEventsAsMaps(month: month, year: year);
+  final recurring = await recurringDao.getRecurring();
+
+  final onHold = <String, int>{};
+  for (final r in recurring) {
+    if (r.isAutopay != 1) continue;
+    if (r.accountId == null) continue;
+    if (r.type != 'expense' && r.type != 'emi_payment') continue;
+
+    final nextDue = r.nextDueDate != null ? DateTime.tryParse(r.nextDueDate!) : null;
+    final relevant = (r.frequency == 'monthly' ||
+            r.frequency == 'daily' ||
+            r.frequency == 'weekly') ||
+        (nextDue != null &&
+            !nextDue.isBefore(periodStart) &&
+            !nextDue.isAfter(periodEnd));
+    if (!relevant) continue;
+
+    final hasEvent = events.any((e) => e['recurring_id'] == r.id);
+    if (hasEvent) continue;
+
+    onHold[r.accountId!] = (onHold[r.accountId!] ?? 0) + r.amount;
+  }
+  return onHold;
+});
+
 class AccountsScreen extends ConsumerWidget {
   const AccountsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final accountsAsync = ref.watch(accountsProvider);
+    final onHoldAsync = ref.watch(accountOnHoldProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Accounts'),
+        title: Text(AppStrings.get('accounts')),
         actions: [
           IconButton(
             icon: const Icon(Icons.add_business),
-            tooltip: 'Add Account',
+            tooltip: AppStrings.get('add_account'),
             onPressed: () => _showAddAccountSheet(context, ref),
           ),
         ],
@@ -35,22 +79,47 @@ class AccountsScreen extends ConsumerWidget {
         error: (err, _) => Center(child: Text('Error: $err')),
         data: (accounts) {
           if (accounts.isEmpty) {
-            return const Center(
-              child: Text('No accounts yet', style: TextStyle(color: AppColors.textMuted)),
+            return Center(
+              child: Text(AppStrings.get('no_accounts_yet'),
+                  style: const TextStyle(color: AppColors.textMuted)),
             );
           }
+          final onHold = onHoldAsync.valueOrNull ?? {};
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: accounts.length,
             itemBuilder: (context, index) {
               final account = accounts[index];
+              final hold = onHold[account.id] ?? 0;
+              final base =
+                  '${AppStrings.accountTypeName(account.type)}${account.institution != null ? ' • ${account.institution}' : ''}';
               return Card(
                 child: ListTile(
                   leading: AppIcons.accountIcon(account.type),
                   title: Text(account.name),
-                  subtitle: Text(
-                    '${_accountTypeName(account.type)}${account.institution != null ? ' \u2022 ${account.institution}' : ''}',
-                    style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(base,
+                          style: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 12)),
+                      if (hold > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.lock_outline,
+                                  size: 12, color: AppColors.info),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${AppStrings.get('on_hold')}: ${formatAmount(hold)}',
+                                style: const TextStyle(
+                                    color: AppColors.info, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                   trailing: AmountDisplay(
                     amount: account.trackedBalance,
@@ -65,18 +134,6 @@ class AccountsScreen extends ConsumerWidget {
         },
       ),
     );
-  }
-
-  String _accountTypeName(String type) {
-    switch (type) {
-      case 'savings': return 'Savings';
-      case 'current': return 'Current';
-      case 'cash': return 'Cash';
-      case 'credit_card': return 'Credit Card';
-      case 'upi_wallet': return 'UPI Wallet';
-      case 'debit_card': return 'Debit Card';
-      default: return type;
-    }
   }
 
   void _showAddAccountSheet(BuildContext context, WidgetRef ref) {
@@ -105,42 +162,53 @@ class AccountsScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Add Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              Text(AppStrings.get('add_account'),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
               const SizedBox(height: 16),
               TextField(
                 controller: nameController,
-                decoration: const InputDecoration(labelText: 'Account Name'),
+                decoration: InputDecoration(labelText: AppStrings.get('account_name')),
                 autofocus: true,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: selectedType,
-                decoration: const InputDecoration(labelText: 'Type'),
-                items: const [
-                  DropdownMenuItem(value: 'savings', child: Text('Savings')),
-                  DropdownMenuItem(value: 'current', child: Text('Current')),
-                  DropdownMenuItem(value: 'cash', child: Text('Cash')),
-                  DropdownMenuItem(value: 'credit_card', child: Text('Credit Card')),
-                  DropdownMenuItem(value: 'upi_wallet', child: Text('UPI Wallet')),
+                decoration: InputDecoration(labelText: AppStrings.get('type')),
+                items: [
+                  DropdownMenuItem(
+                      value: 'savings',
+                      child: Text(AppStrings.accountTypeName('savings'))),
+                  DropdownMenuItem(
+                      value: 'current',
+                      child: Text(AppStrings.accountTypeName('current'))),
+                  DropdownMenuItem(
+                      value: 'cash', child: Text(AppStrings.accountTypeName('cash'))),
+                  DropdownMenuItem(
+                      value: 'credit_card',
+                      child: Text(AppStrings.accountTypeName('credit_card'))),
+                  DropdownMenuItem(
+                      value: 'upi_wallet',
+                      child: Text(AppStrings.accountTypeName('upi_wallet'))),
                 ],
                 onChanged: (v) => setState(() => selectedType = v!),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: institutionController,
-                decoration: const InputDecoration(labelText: 'Institution (optional)'),
+                decoration:
+                    InputDecoration(labelText: AppStrings.get('institution_optional')),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: balanceController,
-                decoration: const InputDecoration(labelText: 'Initial Balance (\u20B9)'),
+                decoration: InputDecoration(labelText: AppStrings.get('initial_balance')),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
               ),
               if (selectedType == 'credit_card') ...[
                 const SizedBox(height: 12),
                 TextField(
                   controller: creditLimitCtrl,
-                  decoration: const InputDecoration(labelText: 'Credit Limit (\u20B9)'),
+                  decoration: InputDecoration(labelText: AppStrings.get('credit_limit')),
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 12),
@@ -149,7 +217,8 @@ class AccountsScreen extends ConsumerWidget {
                     Expanded(
                       child: TextField(
                         controller: billingDayCtrl,
-                        decoration: const InputDecoration(labelText: 'Billing Day'),
+                        decoration:
+                            InputDecoration(labelText: AppStrings.get('billing_day')),
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -157,7 +226,7 @@ class AccountsScreen extends ConsumerWidget {
                     Expanded(
                       child: TextField(
                         controller: dueDayCtrl,
-                        decoration: const InputDecoration(labelText: 'Due Day'),
+                        decoration: InputDecoration(labelText: AppStrings.get('due_day')),
                         keyboardType: TextInputType.number,
                       ),
                     ),
@@ -171,26 +240,29 @@ class AccountsScreen extends ConsumerWidget {
                   final balanceRupees = double.tryParse(balanceController.text) ?? 0;
                   final balancePaise = (balanceRupees * 100).round();
                   final isCreditCard = selectedType == 'credit_card';
-                  final creditLimit = isCreditCard ? (int.tryParse(creditLimitCtrl.text) ?? 0) * 100 : null;
-                  final billingDay = isCreditCard ? int.tryParse(billingDayCtrl.text) : null;
+                  final creditLimit = isCreditCard
+                      ? (int.tryParse(creditLimitCtrl.text) ?? 0) * 100
+                      : null;
+                  final billingDay =
+                      isCreditCard ? int.tryParse(billingDayCtrl.text) : null;
                   final dueDay = isCreditCard ? int.tryParse(dueDayCtrl.text) : null;
                   await ref.read(accountDaoProvider).createAccount(
-                    name: nameController.text.trim(),
-                    type: selectedType,
-                    institution: institutionController.text.trim().isNotEmpty
-                        ? institutionController.text.trim()
-                        : null,
-                    trackedBalance: balancePaise,
-                    isCredit: isCreditCard,
-                    creditLimit: creditLimit,
-                    billingDay: billingDay,
-                    dueDay: dueDay,
-                  );
+                        name: nameController.text.trim(),
+                        type: selectedType,
+                        institution: institutionController.text.trim().isNotEmpty
+                            ? institutionController.text.trim()
+                            : null,
+                        trackedBalance: balancePaise,
+                        isCredit: isCreditCard,
+                        creditLimit: creditLimit,
+                        billingDay: billingDay,
+                        dueDay: dueDay,
+                      );
                   ref.invalidate(accountsProvider);
                   ref.invalidate(dashboardProvider);
                   if (context.mounted) Navigator.pop(context);
                 },
-                child: const Text('Add Account'),
+                child: Text(AppStrings.get('add_account')),
               ),
             ],
           ),
@@ -201,7 +273,11 @@ class AccountsScreen extends ConsumerWidget {
 
   void _showEditAccountSheet(BuildContext context, WidgetRef ref, Account account) {
     final nameController = TextEditingController(text: account.name);
-    final institutionController = TextEditingController(text: account.institution ?? '');
+    final institutionController =
+        TextEditingController(text: account.institution ?? '');
+    final balanceController = TextEditingController(
+        text: (account.trackedBalance / 100).toStringAsFixed(2));
+    final originalBalance = account.trackedBalance;
 
     showModalBottomSheet(
       context: context,
@@ -215,49 +291,94 @@ class AccountsScreen extends ConsumerWidget {
           left: 16, right: 16, top: 16,
           bottom: MediaQuery.of(context).viewInsets.bottom + 16,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Edit Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Account Name'),
-              autofocus: true,
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: account.type,
-              decoration: const InputDecoration(labelText: 'Type'),
-              items: [
-                DropdownMenuItem(value: account.type, child: Text(_accountTypeName(account.type))),
-              ],
-              onChanged: null, // Disabled — changing type breaks balance semantics
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: institutionController,
-              decoration: const InputDecoration(labelText: 'Institution (optional)'),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameController.text.trim().isEmpty) return;
-                await ref.read(accountDaoProvider).updateAccount(
-                  account.id,
-                  name: nameController.text.trim(),
-                  institution: institutionController.text.trim().isNotEmpty
-                      ? institutionController.text.trim()
-                      : null,
-                );
-                ref.invalidate(accountsProvider);
-                ref.invalidate(dashboardProvider);
-                if (context.mounted) Navigator.pop(context);
-              },
-              child: const Text('Save Changes'),
-            ),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(AppStrings.get('edit_account'),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameController,
+                decoration: InputDecoration(labelText: AppStrings.get('account_name')),
+                autofocus: true,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: account.type,
+                decoration: InputDecoration(labelText: AppStrings.get('type')),
+                items: [
+                  DropdownMenuItem(
+                      value: account.type,
+                      child: Text(AppStrings.accountTypeName(account.type))),
+                ],
+                onChanged: null,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: institutionController,
+                decoration:
+                    InputDecoration(labelText: AppStrings.get('institution_optional')),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: balanceController,
+                decoration: InputDecoration(
+                  labelText: AppStrings.get('initial_balance'),
+                  helperText: AppStrings.get('initial_balance_warning'),
+                  helperMaxLines: 3,
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () async {
+                  if (nameController.text.trim().isEmpty) return;
+                  final newBalanceRupees = double.tryParse(balanceController.text);
+                  final newBalancePaise = newBalanceRupees != null
+                      ? (newBalanceRupees * 100).round()
+                      : originalBalance;
+
+                  if (newBalancePaise != originalBalance &&
+                      originalBalance != 0 &&
+                      ((newBalancePaise - originalBalance).abs() / originalBalance.abs()) > 0.10) {
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text(AppStrings.get('large_change_warning')),
+                        content: Text(
+                          '${formatAmount(originalBalance)} → ${formatAmount(newBalancePaise)}',
+                        ),
+                        actions: [
+                          TextButton(
+                              onPressed: () => Navigator.pop(ctx, false),
+                              child: Text(AppStrings.get('cancel'))),
+                          ElevatedButton(
+                              onPressed: () => Navigator.pop(ctx, true),
+                              child: Text(AppStrings.get('save_changes'))),
+                        ],
+                      ),
+                    );
+                    if (ok != true) return;
+                  }
+
+                  await ref.read(accountDaoProvider).updateAccount(
+                        account.id,
+                        name: nameController.text.trim(),
+                        institution: institutionController.text.trim().isNotEmpty
+                            ? institutionController.text.trim()
+                            : null,
+                        trackedBalance: newBalancePaise,
+                      );
+                  ref.invalidate(accountsProvider);
+                  ref.invalidate(dashboardProvider);
+                  if (context.mounted) Navigator.pop(context);
+                },
+                child: Text(AppStrings.get('save_changes')),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -275,22 +396,28 @@ class AccountsScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(account.name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text(account.name,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 Column(
                   children: [
-                    const Text('Balance', style: TextStyle(color: AppColors.textMuted)),
-                    AmountDisplay(amount: account.trackedBalance, colorize: true,
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text(AppStrings.get('balance'),
+                        style: const TextStyle(color: AppColors.textMuted)),
+                    AmountDisplay(
+                        amount: account.trackedBalance,
+                        colorize: true,
+                        style:
+                            const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 Column(
                   children: [
-                    const Text('Type', style: TextStyle(color: AppColors.textMuted)),
-                    Text(_accountTypeName(account.type)),
+                    Text(AppStrings.get('type'),
+                        style: const TextStyle(color: AppColors.textMuted)),
+                    Text(AppStrings.accountTypeName(account.type)),
                   ],
                 ),
               ],
@@ -303,7 +430,7 @@ class AccountsScreen extends ConsumerWidget {
                   _showEditAccountSheet(context, ref, account);
                 },
                 icon: const Icon(Icons.edit),
-                label: const Text('Edit'),
+                label: Text(AppStrings.get('edit')),
               ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
@@ -314,7 +441,8 @@ class AccountsScreen extends ConsumerWidget {
                   if (context.mounted) Navigator.pop(context);
                 },
                 icon: const Icon(Icons.delete, color: AppColors.danger),
-                label: const Text('Deactivate', style: TextStyle(color: AppColors.danger)),
+                label: Text(AppStrings.get('deactivate'),
+                    style: const TextStyle(color: AppColors.danger)),
               ),
             ],
           ],

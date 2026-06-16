@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
+import '../l10n/strings.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/database_provider.dart';
 import '../theme/colors.dart';
@@ -35,10 +36,10 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('History'),
+        title: Text(AppStrings.get('history')),
         actions: [
           FilterChip(
-            label: Text(_moneyOnly ? 'Money Only' : 'All Activity'),
+            label: Text(_moneyOnly ? AppStrings.get('money_only') : AppStrings.get('all_activity')),
             selected: _moneyOnly,
             onSelected: (v) => setState(() => _moneyOnly = v),
             selectedColor: AppColors.accent.withAlpha(50),
@@ -55,8 +56,8 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
               : events;
 
           if (filtered.isEmpty) {
-            return const Center(
-              child: Text('No transactions yet', style: TextStyle(color: AppColors.textMuted)),
+            return Center(
+              child: Text(AppStrings.get('no_transactions_yet'), style: const TextStyle(color: AppColors.textMuted)),
             );
           }
 
@@ -91,11 +92,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                     child: ListTile(
                       leading: AppIcons.eventIcon(event.type, radius: 16),
                       title: Text(
-                        event.description ?? _eventTypeName(event.type),
+                        event.description ?? AppStrings.eventTypeName(event.type),
                         style: const TextStyle(fontSize: 14),
                       ),
                       subtitle: Text(
-                        '${event.category ?? _eventTypeName(event.type)}',
+                        event.category ?? AppStrings.eventTypeName(event.type),
                         style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
                       ),
                       trailing: AmountDisplay(
@@ -123,33 +124,18 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     );
   }
 
-  String _eventTypeName(String type) {
-    return {
-      'expense': 'Expense',
-      'liability': 'I Owe',
-      'receivable': 'Owes Me',
-      'settlement_paid': 'Settled (Paid)',
-      'settlement_received': 'Settled (Received)',
-      'budget_adjustment': 'Adjustment',
-      'transfer': 'Transfer',
-      'income': 'Income',
-      'credit_card_payment': 'CC Payment',
-      'emi_payment': 'EMI Payment',
-    }[type] ?? type;
-  }
-
   void _confirmDelete(BuildContext context, WidgetRef ref, Event event) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Transaction?'),
-        content: Text('Delete ${event.description ?? _eventTypeName(event.type)} for ${formatAmount(event.amount)}?'),
+        title: Text(AppStrings.get('delete_transaction_q')),
+        content: Text(AppStrings.format('delete_transaction_msg', [event.description ?? AppStrings.eventTypeName(event.type), formatAmount(event.amount)])),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(AppStrings.get('cancel'))),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.danger),
-            child: const Text('Delete'),
+            child: Text(AppStrings.get('delete')),
           ),
         ],
       ),

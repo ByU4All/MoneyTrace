@@ -13,6 +13,7 @@ class DashboardData {
   final int receivables;
   final int unpaidCommitments;
   final List<Map<String, dynamic>> unpaidRecurringItems;
+  final List<Map<String, dynamic>> onHoldItems;
   final Map<String, int> categorySpend;
   final List<Map<String, dynamic>> recentEvents;
   final int currentMonth;
@@ -28,6 +29,7 @@ class DashboardData {
     required this.receivables,
     this.unpaidCommitments = 0,
     this.unpaidRecurringItems = const [],
+    this.onHoldItems = const [],
     required this.categorySpend,
     required this.recentEvents,
     required this.currentMonth,
@@ -59,32 +61,60 @@ final dashboardProvider = FutureProvider.autoDispose<DashboardData>((ref) async 
   final categorySpend = computeCategorySpend(events, month: month, year: year);
   final friendBalances = computeFriendBalances(allEvents);
 
-  // Compute unpaid recurring commitments for this month
+  // Compute unpaid recurring commitments for this month.
+  // The set of "expected this month" is anything whose nextDueDate falls inside
+  // the budget period, plus monthly/weekly/daily items that always fall in.
+  // Match-against-events uses recurring_id as the truth — the legacy
+  // description-fallback was fragile and double-counted on rename.
   final activeRecurring = await recurringDao.getRecurring();
   final unpaidRecurring = <Map<String, dynamic>>[];
+  final onHoldItems = <Map<String, dynamic>>[];
+
+  // Compute the start/end of the current budget period so we can window dates.
+  final periodStart = DateTime(year, month, resetDay);
+  final periodEnd = DateTime(year, month + 1, resetDay)
+      .subtract(const Duration(days: 1));
+
   for (final rec in activeRecurring) {
     if (rec.type != 'expense' && rec.type != 'emi_payment') continue;
 
-    // Determine if this recurring is relevant for the current budget period
-    bool relevantThisMonth = false;
-    if (rec.frequency == 'monthly' || rec.frequency == 'daily' || rec.frequency == 'weekly') {
-      // Always relevant — check if already paid this month
+    final nextDue = rec.nextDueDate != null
+        ? DateTime.tryParse(rec.nextDueDate!)
+        : null;
+
+    bool relevantThisMonth;
+    if (rec.frequency == 'monthly' ||
+        rec.frequency == 'daily' ||
+        rec.frequency == 'weekly') {
       relevantThisMonth = true;
-    } else if (rec.frequency == 'yearly') {
-      // Only relevant if nextDueDate falls in this month
-      final nextDue = rec.nextDueDate != null ? DateTime.tryParse(rec.nextDueDate!) : null;
-      if (nextDue != null && nextDue.month == month && nextDue.year == year) {
-        relevantThisMonth = true;
-      }
+    } else {
+      relevantThisMonth = nextDue != null &&
+          !nextDue.isBefore(periodStart) &&
+          !nextDue.isAfter(periodEnd);
     }
 
-    if (relevantThisMonth) {
-      // Check if an event matching this recurring's description already exists this month
-      final hasEvent = events.any((e) =>
-          e['recurring_id'] == rec.id ||
-          (e['description'] == rec.name && e['type'] == rec.type));
-      if (!hasEvent) {
-        unpaidRecurring.add({'type': rec.type, 'amount': rec.amount, 'name': rec.name});
+    if (!relevantThisMonth) continue;
+
+    final hasEvent = events.any((e) => e['recurring_id'] == rec.id);
+    final item = {
+      'id': rec.id,
+      'type': rec.type,
+      'amount': rec.amount,
+      'name': rec.name,
+      'is_autopay': rec.isAutopay,
+      'next_due_date': rec.nextDueDate,
+      'account_id': rec.accountId,
+    };
+
+    if (!hasEvent) {
+      unpaidRecurring.add(item);
+      if (rec.isAutopay == 1) {
+        onHoldItems.add({
+          ...item,
+          'reason': rec.dayOfMonth != null
+              ? 'Auto-pay on day ${rec.dayOfMonth}'
+              : 'Auto-pay scheduled',
+        });
       }
     }
   }
@@ -107,6 +137,7 @@ final dashboardProvider = FutureProvider.autoDispose<DashboardData>((ref) async 
     receivables: receivables,
     unpaidCommitments: unpaidCommitments,
     unpaidRecurringItems: unpaidRecurring,
+    onHoldItems: onHoldItems,
     categorySpend: categorySpend,
     recentEvents: recentEvents,
     currentMonth: month,

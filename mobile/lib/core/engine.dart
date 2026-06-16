@@ -108,7 +108,30 @@ int computeOutstandingReceivables(Iterable<Map<String, dynamic>> events) {
   return total < 0 ? 0 : total;
 }
 
+/// Days from `now` to the next occurrence of the EMI day-of-month.
+/// Returns 0 if today *is* the EMI day. Clamps `emiDay` to a safe value
+/// for short months (e.g. 31 in February becomes the last day of February).
+int daysUntilNextEmi({required int emiDay, required DateTime now}) {
+  final today = DateTime(now.year, now.month, now.day);
+  final daysInThisMonth = DateTime(now.year, now.month + 1, 0).day;
+  final clampedThisMonth = emiDay.clamp(1, daysInThisMonth);
+  final dueThisMonth = DateTime(now.year, now.month, clampedThisMonth);
+
+  if (!dueThisMonth.isBefore(today)) {
+    return dueThisMonth.difference(today).inDays;
+  }
+
+  final nextMonth = DateTime(now.year, now.month + 1, 1);
+  final daysInNextMonth = DateTime(nextMonth.year, nextMonth.month + 1, 0).day;
+  final clampedNext = emiDay.clamp(1, daysInNextMonth);
+  final dueNextMonth = DateTime(nextMonth.year, nextMonth.month, clampedNext);
+  return dueNextMonth.difference(today).inDays;
+}
+
 /// Net balance per friend. Positive = friend owes you, Negative = you owe friend.
+/// Reads only the legacy primary `friend_id` on events because that's the field
+/// LIABILITY/RECEIVABLE/SETTLEMENT semantics depend on. Multi-friend tags from
+/// the event_friends join table are *history* labels with no balance meaning.
 Map<String, int> computeFriendBalances(Iterable<Map<String, dynamic>> events) {
   final balances = <String, int>{};
 

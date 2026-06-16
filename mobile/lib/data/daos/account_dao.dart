@@ -75,6 +75,7 @@ class AccountDao {
     int? creditLimit,
     int? billingDay,
     int? dueDay,
+    int? trackedBalance,
   }) async {
     final companion = AccountsCompanion(
       name: name != null ? Value(name) : const Value.absent(),
@@ -86,6 +87,7 @@ class AccountDao {
       creditLimit: creditLimit != null ? Value(creditLimit) : const Value.absent(),
       billingDay: billingDay != null ? Value(billingDay) : const Value.absent(),
       dueDay: dueDay != null ? Value(dueDay) : const Value.absent(),
+      trackedBalance: trackedBalance != null ? Value(trackedBalance) : const Value.absent(),
     );
 
     final count = await (_db.update(_db.accounts)
