@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'colors.dart';
 
-/// Nothing OS-inspired dark theme: AMOLED black, border-based cards,
-/// pill buttons, Space Grotesk typography, red accent.
+/// Dark neumorphism theme: dark-gray base, soft directional shadows on cards,
+/// pill buttons, Space Grotesk typography, Nothing red accent.
 class AppTheme {
   AppTheme._();
 
@@ -66,23 +66,23 @@ class AppTheme {
                 ),
         ),
 
-        // Cards — no elevation, thin border
+        // Cards — neumorphic: no border, soft shadow for depth
         cardTheme: CardThemeData(
           color: AppColors.card,
-          elevation: 0,
+          elevation: 3,
+          shadowColor: AppColors.shadowDark,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
           ),
         ),
 
-        // Bottom Navigation — flat, no elevation
+        // Bottom Navigation — neumorphic surface, no hard line
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: AppColors.surface,
           selectedItemColor: AppColors.accent,
           unselectedItemColor: AppColors.textMuted,
           type: BottomNavigationBarType.fixed,
-          elevation: 0,
+          elevation: 4,
         ),
 
         // Buttons — pill-shaped (borderRadius: 24)
@@ -116,21 +116,25 @@ class AppTheme {
           ),
         ),
 
-        // Inputs — filled with subtle background + outline border
+        // Inputs — neumorphic inset: no outline in normal state, red glow on focus
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: AppColors.surfaceLight,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            borderSide: BorderSide.none,
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.danger, width: 1),
           ),
           labelStyle: const TextStyle(color: AppColors.textSecondary),
           hintStyle: const TextStyle(color: AppColors.textMuted),
@@ -201,14 +205,16 @@ class AppTheme {
           thickness: 1,
         ),
 
-        // Chips — border-based
+        // Chips — neumorphic: no border, subtle shadow
         chipTheme: ChipThemeData(
           backgroundColor: AppColors.surfaceLight,
           labelStyle: const TextStyle(color: AppColors.textPrimary),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
+          side: BorderSide.none,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
+          elevation: 2,
+          shadowColor: AppColors.shadowDark,
         ),
 
         // Dialog
@@ -220,13 +226,14 @@ class AppTheme {
           ),
         ),
 
-        // Bottom Sheet — slightly lighter so inputs inside have contrast
-        bottomSheetTheme: BottomSheetThemeData(
+        // Bottom Sheet — neumorphic surface, no border
+        bottomSheetTheme: const BottomSheetThemeData(
           backgroundColor: AppColors.surface,
           shape: RoundedRectangleBorder(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
+          elevation: 8,
+          shadowColor: AppColors.shadowDark,
         ),
 
         // Switch

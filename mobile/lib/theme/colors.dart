@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 
-/// Nothing OS-inspired monochrome + red accent color palette.
+/// Dark neumorphism color palette — dark gray base with soft directional shadows.
+/// Nothing red accent retained; ~80% AMOLED benefit vs pure black.
 class AppColors {
   AppColors._();
 
-  // Background colors
-  static const background = Color(0xFF000000);
-  static const surface = Color(0xFF0D0D0D);
-  static const surfaceLight = Color(0xFF1A1A1A);
-  static const card = Color(0xFF0D0D0D);
+  // Background colors — dark gray base (neumorphic surface)
+  static const background = Color(0xFF1C1C2C);
+  static const surface = Color(0xFF222233);
+  static const surfaceLight = Color(0xFF292940);
+  static const card = Color(0xFF1C1C2C);
 
-  // Accent colors
+  // Neumorphic shadows
+  static const shadowLight = Color(0xFF2E2E40); // top-left highlight
+  static const shadowDark = Color(0xFF0A0A14);  // bottom-right depth
+
+  // Accent colors — Nothing red, unchanged
   static const accent = Color(0xFFD72638);
   static const accentLight = Color(0xFFE8485A);
-  static const primary = Color(0xFF1A1A1A);
-  static const primaryLight = Color(0xFF2A2A2A);
+  static const primary = Color(0xFF292940);
+  static const primaryLight = Color(0xFF333348);
 
   // Text colors
   static const textPrimary = Color(0xFFEDEDED);
@@ -27,7 +32,7 @@ class AppColors {
   static const warning = Color(0xFFD4A843);
   static const info = Color(0xFF5B9BD5);
 
-  // Category colors (muted/desaturated for AMOLED black)
+  // Category colors (muted/desaturated)
   static const categoryColors = [
     Color(0xFFD72638),
     Color(0xFF4CAF7D),

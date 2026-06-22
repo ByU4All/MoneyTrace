@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/recurring_processor.dart';
 import 'l10n/strings.dart';
+import 'services/notification_service.dart';
 import 'providers/database_provider.dart';
 import 'providers/dashboard_provider.dart';
 import 'providers/locale_provider.dart';
@@ -20,8 +21,9 @@ import 'screens/history_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/visual_summary_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.initialize();
   runApp(const ProviderScope(child: MoneyTraceApp()));
 }
 
@@ -100,6 +102,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _processAutopay();
       _handleWidgetAction();
+      _checkCCNotifications();
     });
   }
 
@@ -107,6 +110,15 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       ref.invalidate(dashboardProvider);
+      _checkCCNotifications();
+    }
+  }
+
+  Future<void> _checkCCNotifications() async {
+    try {
+      await NotificationService.checkCreditCardDues(ref.read(creditCardDaoProvider));
+    } catch (_) {
+      // Notifications are best-effort — never crash the app
     }
   }
 

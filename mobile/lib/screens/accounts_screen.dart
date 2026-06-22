@@ -55,6 +55,51 @@ final accountOnHoldProvider =
   return onHold;
 });
 
+class _HoldItem {
+  final String name;
+  final int amount;
+  const _HoldItem(this.name, this.amount);
+}
+
+final accountOnHoldItemsProvider =
+    FutureProvider.autoDispose<Map<String, List<_HoldItem>>>((ref) async {
+  final recurringDao = ref.watch(recurringDaoProvider);
+  final settingsDao = ref.watch(settingsDaoProvider);
+  final eventDao = ref.watch(eventDaoProvider);
+
+  final now = DateTime.now();
+  final resetDay = await settingsDao.getBudgetResetDay();
+  final (year, month) = getBudgetPeriod(now, resetDay);
+  final periodStart = DateTime(year, month, resetDay);
+  final periodEnd = DateTime(year, month + 1, resetDay)
+      .subtract(const Duration(days: 1));
+
+  final events = await eventDao.getEventsAsMaps(month: month, year: year);
+  final recurring = await recurringDao.getRecurring();
+
+  final result = <String, List<_HoldItem>>{};
+  for (final r in recurring) {
+    if (r.isAutopay != 1) continue;
+    if (r.accountId == null) continue;
+    if (r.type != 'expense' && r.type != 'emi_payment') continue;
+
+    final nextDue = r.nextDueDate != null ? DateTime.tryParse(r.nextDueDate!) : null;
+    final relevant = (r.frequency == 'monthly' ||
+            r.frequency == 'daily' ||
+            r.frequency == 'weekly') ||
+        (nextDue != null &&
+            !nextDue.isBefore(periodStart) &&
+            !nextDue.isAfter(periodEnd));
+    if (!relevant) continue;
+
+    final hasEvent = events.any((e) => e['recurring_id'] == r.id);
+    if (hasEvent) continue;
+
+    result.putIfAbsent(r.accountId!, () => []).add(_HoldItem(r.name, r.amount));
+  }
+  return result;
+});
+
 class AccountsScreen extends ConsumerWidget {
   const AccountsScreen({super.key});
 
@@ -62,6 +107,7 @@ class AccountsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accountsAsync = ref.watch(accountsProvider);
     final onHoldAsync = ref.watch(accountOnHoldProvider);
+    final holdItemsAsync = ref.watch(accountOnHoldItemsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -85,6 +131,7 @@ class AccountsScreen extends ConsumerWidget {
             );
           }
           final onHold = onHoldAsync.valueOrNull ?? {};
+          final holdItems = holdItemsAsync.valueOrNull ?? {};
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: accounts.length,
@@ -126,12 +173,58 @@ class AccountsScreen extends ConsumerWidget {
                     colorize: true,
                     style: const TextStyle(fontWeight: FontWeight.w600),
                   ),
-                  onTap: () => _showAccountDetail(context, ref, account),
+                  onTap: () => _showAccountDetail(
+                      context, ref, account, holdItems[account.id] ?? []),
                 ),
               );
             },
           );
         },
+      ),
+    );
+  }
+
+  void _showOnHoldDetail(BuildContext context, List<_HoldItem> items) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Upcoming Autopay',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Amounts reserved for this billing period',
+              style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            if (items.isEmpty)
+              const Text('No items on hold',
+                  style: TextStyle(color: AppColors.textMuted))
+            else
+              ...items.map((item) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                            child: Text(item.name,
+                                style: const TextStyle(fontSize: 14))),
+                        AmountDisplay(amount: item.amount),
+                      ],
+                    ),
+                  )),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
@@ -384,7 +477,8 @@ class AccountsScreen extends ConsumerWidget {
     );
   }
 
-  void _showAccountDetail(BuildContext context, WidgetRef ref, Account account) {
+  void _showAccountDetail(BuildContext context, WidgetRef ref, Account account,
+      List<_HoldItem> holdItems) {
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surface,
@@ -395,8 +489,10 @@ class AccountsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(account.name,
+                textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 16),
             Row(
@@ -422,6 +518,40 @@ class AccountsScreen extends ConsumerWidget {
                 ),
               ],
             ),
+            if (holdItems.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              const Divider(),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lock_outline, size: 14, color: AppColors.info),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'On Hold — Upcoming Autopay',
+                      style: TextStyle(
+                          color: AppColors.info,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+              ...holdItems.map((item) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                            child: Text(item.name,
+                                style: const TextStyle(fontSize: 13))),
+                        AmountDisplay(
+                            amount: item.amount,
+                            style: const TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  )),
+            ],
             const SizedBox(height: 16),
             if (account.isActive == 1) ...[
               ElevatedButton.icon(

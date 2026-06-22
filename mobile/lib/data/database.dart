@@ -67,6 +67,7 @@ class Events extends Table {
   TextColumn get loanId => text().nullable().named('loan_id')();
   TextColumn get eventDate => text().named('event_date')();
   TextColumn get createdAt => text().named('created_at')();
+  TextColumn get billPhotoPath => text().nullable().named('bill_photo_path')();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -251,7 +252,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -259,6 +260,9 @@ class AppDatabase extends _$AppDatabase {
           await m.createAll();
         },
         onUpgrade: (m, from, to) async {
+          if (from < 3) {
+            await m.addColumn(events, events.billPhotoPath);
+          }
           if (from < 2) {
             await m.createTable(eventFriends);
             // Backfill: every event with a primary friend_id also gets a row

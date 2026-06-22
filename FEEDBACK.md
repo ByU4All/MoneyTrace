@@ -56,6 +56,47 @@ Currently export/backup uses a share mechanism (e.g., share_plus) that opens the
 
 ---
 
+## v0.1.5 — Reported 2026-06-22
+
+| # | Issue | Severity | Status |
+|---|-------|----------|--------|
+| 1 | History screen has no filtering — need This Week, This Month, Custom Date Range filter chips | Medium | Open |
+| 2 | Friend dropdowns (add/edit event) have no inline "Add new friend" option — forces navigation to Friends screen | Medium | Open |
+| 3 | No split transaction support — can't split a transaction with a friend and auto-create a RECEIVABLE | High | Open |
+| 4 | No local notifications for upcoming credit card statement due dates | High | Open |
+
+### Details
+
+**#1 — History Screen Filter Chips**
+History screen (`mobile/lib/screens/history_screen.dart`) currently dumps all transactions with no date filtering. Add filter chips at the top of the screen:
+- "This Week" — transactions from the current calendar week
+- "This Month" — transactions from the current calendar month
+- "Custom Date Range" — opens a date range picker; shows selected range as chip label
+Default view (no chip selected) remains "All". Only one chip active at a time.
+
+**#2 — Inline Friend Creation in Event Dropdowns**
+Any screen with a friend selection dropdown (`mobile/lib/screens/add_event_screen.dart`, `mobile/lib/screens/edit_event_screen.dart`) should include an "Add new friend" entry at the bottom of the friend list. Tapping it opens a quick-add dialog (name only, no full navigation away). On save, the new friend is created and auto-selected in the dropdown. Eliminates the current friction of leaving the add/edit flow to create a friend first.
+
+**#3 — Split Transaction Support**
+Add split functionality to the add transaction flow (`mobile/lib/screens/add_event_screen.dart`). Design requirements:
+- Optional "Split with friend(s)" toggle — off by default to keep the primary flow fast
+- When toggled on: friend multi-select, default equal split (auto-calculated from total), manual per-friend amount override also supported
+- Budget logic: full transaction amount always debits the budget (user pays upfront)
+- For each friend included in the split: auto-create a RECEIVABLE event for that friend's share (owes-me)
+- The RECEIVABLE events should use the same date, description, and category as the parent transaction
+- Note: "Split expenses between friends" also exists in the Web (v0.2) backlog in TODO.md — this is the mobile implementation
+
+**#4 — Credit Card Due Date Notifications**
+Add local Android push notifications for approaching credit card statement due dates. Implementation notes:
+- Use `flutter_local_notifications` package
+- Trigger: on app launch and via a scheduled daily background check
+- Notify when a due date is within a configurable window (e.g., 3 days out)
+- Notification should show card name and due date
+- Requires a new notification service (e.g., `mobile/lib/services/notification_service.dart`)
+- Entry point: `mobile/lib/screens/credit_cards_screen.dart`
+
+---
+
 ## Template for Future Versions
 
 <!--

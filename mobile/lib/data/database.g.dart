@@ -1297,6 +1297,12 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
   late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
       'created_at', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _billPhotoPathMeta =
+      const VerificationMeta('billPhotoPath');
+  @override
+  late final GeneratedColumn<String> billPhotoPath = GeneratedColumn<String>(
+      'bill_photo_path', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -1311,7 +1317,8 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
         recurringId,
         loanId,
         eventDate,
-        createdAt
+        createdAt,
+        billPhotoPath
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1392,6 +1399,12 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('bill_photo_path')) {
+      context.handle(
+          _billPhotoPathMeta,
+          billPhotoPath.isAcceptableOrUnknown(
+              data['bill_photo_path']!, _billPhotoPathMeta));
+    }
     return context;
   }
 
@@ -1427,6 +1440,8 @@ class $EventsTable extends Events with TableInfo<$EventsTable, Event> {
           .read(DriftSqlType.string, data['${effectivePrefix}event_date'])!,
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}created_at'])!,
+      billPhotoPath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}bill_photo_path']),
     );
   }
 
@@ -1450,6 +1465,7 @@ class Event extends DataClass implements Insertable<Event> {
   final String? loanId;
   final String eventDate;
   final String createdAt;
+  final String? billPhotoPath;
   const Event(
       {required this.id,
       required this.type,
@@ -1463,7 +1479,8 @@ class Event extends DataClass implements Insertable<Event> {
       this.recurringId,
       this.loanId,
       required this.eventDate,
-      required this.createdAt});
+      required this.createdAt,
+      this.billPhotoPath});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1496,6 +1513,9 @@ class Event extends DataClass implements Insertable<Event> {
     }
     map['event_date'] = Variable<String>(eventDate);
     map['created_at'] = Variable<String>(createdAt);
+    if (!nullToAbsent || billPhotoPath != null) {
+      map['bill_photo_path'] = Variable<String>(billPhotoPath);
+    }
     return map;
   }
 
@@ -1529,6 +1549,9 @@ class Event extends DataClass implements Insertable<Event> {
           loanId == null && nullToAbsent ? const Value.absent() : Value(loanId),
       eventDate: Value(eventDate),
       createdAt: Value(createdAt),
+      billPhotoPath: billPhotoPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(billPhotoPath),
     );
   }
 
@@ -1549,6 +1572,7 @@ class Event extends DataClass implements Insertable<Event> {
       loanId: serializer.fromJson<String?>(json['loanId']),
       eventDate: serializer.fromJson<String>(json['eventDate']),
       createdAt: serializer.fromJson<String>(json['createdAt']),
+      billPhotoPath: serializer.fromJson<String?>(json['billPhotoPath']),
     );
   }
   @override
@@ -1568,6 +1592,7 @@ class Event extends DataClass implements Insertable<Event> {
       'loanId': serializer.toJson<String?>(loanId),
       'eventDate': serializer.toJson<String>(eventDate),
       'createdAt': serializer.toJson<String>(createdAt),
+      'billPhotoPath': serializer.toJson<String?>(billPhotoPath),
     };
   }
 
@@ -1584,7 +1609,8 @@ class Event extends DataClass implements Insertable<Event> {
           Value<String?> recurringId = const Value.absent(),
           Value<String?> loanId = const Value.absent(),
           String? eventDate,
-          String? createdAt}) =>
+          String? createdAt,
+          Value<String?> billPhotoPath = const Value.absent()}) =>
       Event(
         id: id ?? this.id,
         type: type ?? this.type,
@@ -1600,6 +1626,8 @@ class Event extends DataClass implements Insertable<Event> {
         loanId: loanId.present ? loanId.value : this.loanId,
         eventDate: eventDate ?? this.eventDate,
         createdAt: createdAt ?? this.createdAt,
+        billPhotoPath:
+            billPhotoPath.present ? billPhotoPath.value : this.billPhotoPath,
       );
   Event copyWithCompanion(EventsCompanion data) {
     return Event(
@@ -1621,6 +1649,9 @@ class Event extends DataClass implements Insertable<Event> {
       loanId: data.loanId.present ? data.loanId.value : this.loanId,
       eventDate: data.eventDate.present ? data.eventDate.value : this.eventDate,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      billPhotoPath: data.billPhotoPath.present
+          ? data.billPhotoPath.value
+          : this.billPhotoPath,
     );
   }
 
@@ -1639,7 +1670,8 @@ class Event extends DataClass implements Insertable<Event> {
           ..write('recurringId: $recurringId, ')
           ..write('loanId: $loanId, ')
           ..write('eventDate: $eventDate, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('billPhotoPath: $billPhotoPath')
           ..write(')'))
         .toString();
   }
@@ -1658,7 +1690,8 @@ class Event extends DataClass implements Insertable<Event> {
       recurringId,
       loanId,
       eventDate,
-      createdAt);
+      createdAt,
+      billPhotoPath);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1675,7 +1708,8 @@ class Event extends DataClass implements Insertable<Event> {
           other.recurringId == this.recurringId &&
           other.loanId == this.loanId &&
           other.eventDate == this.eventDate &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.billPhotoPath == this.billPhotoPath);
 }
 
 class EventsCompanion extends UpdateCompanion<Event> {
@@ -1692,6 +1726,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
   final Value<String?> loanId;
   final Value<String> eventDate;
   final Value<String> createdAt;
+  final Value<String?> billPhotoPath;
   final Value<int> rowid;
   const EventsCompanion({
     this.id = const Value.absent(),
@@ -1707,6 +1742,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     this.loanId = const Value.absent(),
     this.eventDate = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.billPhotoPath = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   EventsCompanion.insert({
@@ -1723,6 +1759,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     this.loanId = const Value.absent(),
     required String eventDate,
     required String createdAt,
+    this.billPhotoPath = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         type = Value(type),
@@ -1743,6 +1780,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
     Expression<String>? loanId,
     Expression<String>? eventDate,
     Expression<String>? createdAt,
+    Expression<String>? billPhotoPath,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1759,6 +1797,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
       if (loanId != null) 'loan_id': loanId,
       if (eventDate != null) 'event_date': eventDate,
       if (createdAt != null) 'created_at': createdAt,
+      if (billPhotoPath != null) 'bill_photo_path': billPhotoPath,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1777,6 +1816,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
       Value<String?>? loanId,
       Value<String>? eventDate,
       Value<String>? createdAt,
+      Value<String?>? billPhotoPath,
       Value<int>? rowid}) {
     return EventsCompanion(
       id: id ?? this.id,
@@ -1792,6 +1832,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
       loanId: loanId ?? this.loanId,
       eventDate: eventDate ?? this.eventDate,
       createdAt: createdAt ?? this.createdAt,
+      billPhotoPath: billPhotoPath ?? this.billPhotoPath,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1838,6 +1879,9 @@ class EventsCompanion extends UpdateCompanion<Event> {
     if (createdAt.present) {
       map['created_at'] = Variable<String>(createdAt.value);
     }
+    if (billPhotoPath.present) {
+      map['bill_photo_path'] = Variable<String>(billPhotoPath.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1860,6 +1904,7 @@ class EventsCompanion extends UpdateCompanion<Event> {
           ..write('loanId: $loanId, ')
           ..write('eventDate: $eventDate, ')
           ..write('createdAt: $createdAt, ')
+          ..write('billPhotoPath: $billPhotoPath, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -6882,6 +6927,7 @@ typedef $$EventsTableCreateCompanionBuilder = EventsCompanion Function({
   Value<String?> loanId,
   required String eventDate,
   required String createdAt,
+  Value<String?> billPhotoPath,
   Value<int> rowid,
 });
 typedef $$EventsTableUpdateCompanionBuilder = EventsCompanion Function({
@@ -6898,6 +6944,7 @@ typedef $$EventsTableUpdateCompanionBuilder = EventsCompanion Function({
   Value<String?> loanId,
   Value<String> eventDate,
   Value<String> createdAt,
+  Value<String?> billPhotoPath,
   Value<int> rowid,
 });
 
@@ -6931,6 +6978,7 @@ class $$EventsTableTableManager extends RootTableManager<
             Value<String?> loanId = const Value.absent(),
             Value<String> eventDate = const Value.absent(),
             Value<String> createdAt = const Value.absent(),
+            Value<String?> billPhotoPath = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               EventsCompanion(
@@ -6947,6 +6995,7 @@ class $$EventsTableTableManager extends RootTableManager<
             loanId: loanId,
             eventDate: eventDate,
             createdAt: createdAt,
+            billPhotoPath: billPhotoPath,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -6963,6 +7012,7 @@ class $$EventsTableTableManager extends RootTableManager<
             Value<String?> loanId = const Value.absent(),
             required String eventDate,
             required String createdAt,
+            Value<String?> billPhotoPath = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               EventsCompanion.insert(
@@ -6979,6 +7029,7 @@ class $$EventsTableTableManager extends RootTableManager<
             loanId: loanId,
             eventDate: eventDate,
             createdAt: createdAt,
+            billPhotoPath: billPhotoPath,
             rowid: rowid,
           ),
         ));
@@ -7051,6 +7102,11 @@ class $$EventsTableFilterComposer
       column: $state.table.createdAt,
       builder: (column, joinBuilders) =>
           ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get billPhotoPath => $state.composableBuilder(
+      column: $state.table.billPhotoPath,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
 }
 
 class $$EventsTableOrderingComposer
@@ -7118,6 +7174,11 @@ class $$EventsTableOrderingComposer
 
   ColumnOrderings<String> get createdAt => $state.composableBuilder(
       column: $state.table.createdAt,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get billPhotoPath => $state.composableBuilder(
+      column: $state.table.billPhotoPath,
       builder: (column, joinBuilders) =>
           ColumnOrderings(column, joinBuilders: joinBuilders));
 }

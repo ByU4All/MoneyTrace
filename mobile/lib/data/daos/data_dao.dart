@@ -93,6 +93,7 @@ class DataDao {
         'loan_id': e.loanId,
         'event_date': e.eventDate,
         'created_at': e.createdAt,
+        'bill_photo_path': e.billPhotoPath,
       }).toList(),
       'month_records': monthRecords.map((m) => {
         'id': m.id,
@@ -333,6 +334,7 @@ class DataDao {
           loanId: Value(e['loan_id'] as String?),
           eventDate: e['event_date'] as String,
           createdAt: e['created_at'] as String,
+          billPhotoPath: Value(e['bill_photo_path'] as String?),
         ));
       }
 

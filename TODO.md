@@ -87,6 +87,25 @@
 
 ---
 
+## Mobile App (Flutter) — Future Backlog
+
+### 1. Bill Photo Attachments
+- [ ] Add optional photo attachments to any transaction (mobile only)
+- [ ] New `bill_photos` table: `(event_id, file_path, created_at)`; foreign key to events
+- [ ] Use `image_picker` package for camera capture or gallery selection
+- [ ] Support one or more photos per transaction
+- [ ] Show photo thumbnails in event detail view and history
+- [ ] Store as file paths (not blobs) in the local DB; files saved to app documents directory
+
+### 2. Neumorphism UI Redesign
+- [ ] Full UI style overhaul from current Nothing OS AMOLED-black theme to neumorphism design
+- [ ] Neumorphism uses soft raised/sunken elements with dual box shadows (light top-left, dark bottom-right)
+- [ ] Requires changing base background from pure black (`#000000`) to a mid-tone gray — this removes the AMOLED power saving benefit; needs explicit design sign-off before starting
+- [ ] Primary files: `mobile/lib/theme/colors.dart` (AppColors) and `mobile/lib/theme/app_theme.dart` (ThemeData)
+- [ ] All screens reference `AppColors.*` by name, so a full-theme swap is possible by editing only the two theme files
+
+---
+
 ## Web App (v0.2) — Backlog
 
 > Items from original upgrade_ideas.md that are still relevant or not yet ported to mobile.

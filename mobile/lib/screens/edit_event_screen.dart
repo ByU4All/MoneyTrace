@@ -1,7 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
 import '../core/engine.dart';
 import '../data/database.dart';
@@ -41,6 +45,8 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
   String? _selectedFromAccountId;
   String? _selectedToAccountId;
   late DateTime _eventDate;
+  String? _selectedPhotoPath;
+  List<Friend> _friends = [];
 
   @override
   void initState() {
@@ -55,6 +61,9 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
     _selectedFromAccountId = e.fromAccountId;
     _selectedToAccountId = e.toAccountId;
     _eventDate = DateTime.parse(e.eventDate);
+    _selectedPhotoPath = e.billPhotoPath;
+
+    _loadFriends();
 
     // Pull existing multi-tags into the chip selection.
     () async {
@@ -63,6 +72,65 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
         setState(() => _selectedFriendIds.addAll(tagged));
       }
     }();
+  }
+
+  Future<void> _loadFriends() async {
+    final friends = await ref.read(friendDaoProvider).getFriends();
+    if (mounted) setState(() => _friends = friends);
+  }
+
+  Future<void> _showAddFriendDialog() async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => const _AddFriendDialog(),
+    );
+    if (!mounted) return;
+    if (name == null || name.isEmpty) return;
+    await ref.read(friendDaoProvider).createFriend(name: name);
+    if (mounted) _loadFriends();
+  }
+
+  Future<void> _pickPhoto(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: source, imageQuality: 80);
+    if (picked == null || !mounted) return;
+    final dir = await getApplicationDocumentsDirectory();
+    final receiptsDir = Directory('${dir.path}/receipts');
+    if (!await receiptsDir.exists()) await receiptsDir.create(recursive: true);
+    final dest = '${receiptsDir.path}/${const Uuid().v4()}.jpg';
+    await File(picked.path).copy(dest);
+    if (_selectedPhotoPath != null) {
+      final old = File(_selectedPhotoPath!);
+      if (await old.exists()) await old.delete();
+    }
+    if (mounted) setState(() => _selectedPhotoPath = dest);
+  }
+
+  void _showPhotoSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () { Navigator.pop(ctx); _pickPhoto(ImageSource.camera); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () { Navigator.pop(ctx); _pickPhoto(ImageSource.gallery); },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -128,49 +196,51 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
           ),
 
         // Friends — primary single for settlement-types, optional multi-tag for the rest.
-        FutureBuilder(
-          future: ref.read(friendDaoProvider).getFriends(),
-          builder: (context, snapshot) {
-            final friends = snapshot.data ?? [];
-            if (friends.isEmpty) return const SizedBox.shrink();
-            final label = _needsFriend
-                ? AppStrings.get('friend')
-                : AppStrings.get('with_friends_optional');
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.people, color: AppColors.textMuted, size: 20),
-                      const SizedBox(width: 8),
-                      Text(label, style: const TextStyle(color: AppColors.textMuted)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: friends.map((f) {
-                      final selected = _selectedFriendIds.contains(f.id);
-                      return FilterChip(
-                        label: Text(f.name),
-                        selected: selected,
-                        onSelected: (on) => setState(() {
-                          if (on) {
-                            _selectedFriendIds.add(f.id);
-                          } else {
-                            _selectedFriendIds.remove(f.id);
-                          }
-                        }),
-                      );
-                    }).toList(),
+                  const Icon(Icons.people, color: AppColors.textMuted, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    _needsFriend
+                        ? AppStrings.get('friend')
+                        : AppStrings.get('with_friends_optional'),
+                    style: const TextStyle(color: AppColors.textMuted),
                   ),
                 ],
               ),
-            );
-          },
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  ..._friends.map((f) {
+                    final selected = _selectedFriendIds.contains(f.id);
+                    return FilterChip(
+                      label: Text(f.name),
+                      selected: selected,
+                      onSelected: (on) => setState(() {
+                        if (on) {
+                          _selectedFriendIds.add(f.id);
+                        } else {
+                          _selectedFriendIds.remove(f.id);
+                        }
+                      }),
+                    );
+                  }),
+                  ActionChip(
+                    avatar: const Icon(Icons.add, size: 16),
+                    label: const Text('New'),
+                    onPressed: _showAddFriendDialog,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
 
         // Transfer accounts
@@ -234,6 +304,49 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
             ),
           ),
         ),
+
+        // Bill photo
+        const SizedBox(height: 16),
+        if (_selectedPhotoPath != null) ...[
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  File(_selectedPhotoPath!),
+                  height: 160,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedPhotoPath = null),
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    padding: const EdgeInsets.all(2),
+                    child: const Icon(Icons.close, color: Colors.white, size: 18),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          TextButton.icon(
+            onPressed: _showPhotoSourceSheet,
+            icon: const Icon(Icons.edit, size: 14),
+            label: const Text('Change photo'),
+          ),
+        ] else
+          OutlinedButton.icon(
+            onPressed: _showPhotoSourceSheet,
+            icon: const Icon(Icons.receipt_long),
+            label: const Text('Attach Bill Photo'),
+          ),
 
         const SizedBox(height: 24),
 
@@ -334,6 +447,7 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
         fromAccountId: _isTransfer ? _selectedFromAccountId : null,
         toAccountId: _isTransfer ? _selectedToAccountId : null,
         eventDate: newDateStr,
+        billPhotoPath: _selectedPhotoPath,
       );
 
       await eventDao.tagFriends(old.id, friendList);
@@ -387,4 +501,43 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
       }
     }
   }
+}
+
+class _AddFriendDialog extends StatefulWidget {
+  const _AddFriendDialog();
+
+  @override
+  State<_AddFriendDialog> createState() => _AddFriendDialogState();
+}
+
+class _AddFriendDialogState extends State<_AddFriendDialog> {
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        title: const Text('Add Friend'),
+        content: TextField(
+          controller: _ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(labelText: 'Name'),
+          onSubmitted: (v) => Navigator.pop(context, v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(AppStrings.get('cancel')),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+            child: Text(AppStrings.get('add')),
+          ),
+        ],
+      );
 }

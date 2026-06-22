@@ -3,6 +3,8 @@ import 'package:uuid/uuid.dart';
 
 import '../database.dart';
 
+const _sentinel = Object();
+
 /// Data access object for financial events.
 class EventDao {
   final AppDatabase _db;
@@ -23,9 +25,10 @@ class EventDao {
     String? recurringId,
     String? loanId,
     required String eventDate,
+    String? billPhotoPath,
   }) async {
     final id = _uuid.v4();
-    final now = DateTime.now().toIso8601String().split('T')[0];
+    final now = DateTime.now().toIso8601String();
 
     await _db.into(_db.events).insert(EventsCompanion.insert(
       id: id,
@@ -41,6 +44,7 @@ class EventDao {
       loanId: Value(loanId),
       eventDate: eventDate,
       createdAt: now,
+      billPhotoPath: Value(billPhotoPath),
     ));
 
     return id;
@@ -49,7 +53,10 @@ class EventDao {
   /// Get all events, ordered by date descending.
   Future<List<Event>> getEvents({int? limit}) async {
     final query = _db.select(_db.events)
-      ..orderBy([(e) => OrderingTerm.desc(e.eventDate)]);
+      ..orderBy([
+        (e) => OrderingTerm.desc(e.eventDate),
+        (e) => OrderingTerm.desc(e.createdAt),
+      ]);
     if (limit != null) {
       query.limit(limit);
     }
@@ -105,6 +112,7 @@ class EventDao {
     String? fromAccountId,
     String? toAccountId,
     String? eventDate,
+    Object? billPhotoPath = _sentinel,
   }) async {
     final companion = EventsCompanion(
       type: type != null ? Value(type) : const Value.absent(),
@@ -116,6 +124,7 @@ class EventDao {
       fromAccountId: fromAccountId != null ? Value(fromAccountId) : const Value.absent(),
       toAccountId: toAccountId != null ? Value(toAccountId) : const Value.absent(),
       eventDate: eventDate != null ? Value(eventDate) : const Value.absent(),
+      billPhotoPath: billPhotoPath == _sentinel ? const Value.absent() : Value(billPhotoPath as String?),
     );
 
     final count = await (_db.update(_db.events)
@@ -190,6 +199,20 @@ class EventDao {
           .go();
       return updated;
     });
+  }
+
+  /// Find RECEIVABLE events that were auto-created as split partners of an expense.
+  /// Matches by type, eventDate, and the 'Split: <description>' naming convention.
+  Future<List<Event>> findSplitReceivables(String eventDate, String? expenseDescription) async {
+    final splitDesc = (expenseDescription != null && expenseDescription.isNotEmpty)
+        ? 'Split: $expenseDescription'
+        : 'Split';
+    return (_db.select(_db.events)
+          ..where((e) =>
+              e.type.equals('receivable') &
+              e.eventDate.equals(eventDate) &
+              e.description.equals(splitDesc)))
+        .get();
   }
 
   /// Delete every event linked to a friend (primary or multi-tag).
