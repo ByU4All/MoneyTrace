@@ -197,11 +197,12 @@ This is what you upload to Play Console.
 3. **Content rating**: fill out the IARC questionnaire (takes 5 min, it's a personal finance app — all answers are basically "no")
 
 4. **Privacy policy**: required for apps that handle financial data
-   - Host a simple page (GitHub Pages works) stating:
-     - All data stored locally on device
-     - No data collected, transmitted, or shared
-     - No analytics, no ads, no third-party services
-   - Enter the URL in Play Console
+   - Page is at `docs/privacy-policy.html` — deploy via GitHub Pages (see below)
+   - URL: `https://byu4all.github.io/MoneyTrace/privacy-policy.html`
+   - Enter this URL in Play Console
+
+5. **Developer website** (optional but recommended):
+   - URL: `https://byu4all.github.io/MoneyTrace/`
 
 5. **Target audience**: select 18+ (finance app)
 
@@ -267,6 +268,8 @@ For each update:
 | Signing config | `mobile/android/key.properties` (gitignored) |
 | AAB output | `mobile/build/app/outputs/bundle/release/app-release.aab` |
 | Play Console | [play.google.com/console](https://play.google.com/console) |
+| Privacy policy | `https://byu4all.github.io/MoneyTrace/privacy-policy.html` |
+| App website | `https://byu4all.github.io/MoneyTrace/` |
 
 ---
 
@@ -302,10 +305,29 @@ The app includes a built-in demo data seeder for taking Play Store screenshots w
 
 ---
 
-## Files that need changes before first publish
+## Enabling GitHub Pages
 
-| File | Change |
+The privacy policy and app landing page live in `docs/`. To activate them:
+
+1. Push the `docs/` folder to the `main` branch on GitHub
+2. Go to **github.com/ByU4All/MoneyTrace → Settings → Pages**
+3. Under **Source**, select **Deploy from a branch**
+4. Branch: `main`, folder: `/docs` → Save
+
+Pages will be live at `https://byu4all.github.io/MoneyTrace/` within a few minutes.
+
+---
+
+## Pre-flight status
+
+All code changes are complete. Nothing left to change before first publish.
+
+| Item | Status |
 |---|---|
-| `mobile/android/app/build.gradle` | applicationId, namespace, signing config |
-| `mobile/android/app/src/main/kotlin/.../MainActivity.kt` | package name |
-| `mobile/pubspec.yaml` | version to `1.0.0+1` |
+| `applicationId` = `com.luke.dev.moneytrace` | ✓ Done |
+| `MainActivity.kt` package updated | ✓ Done |
+| `version` = `1.0.0+1` | ✓ Done |
+| Release keystore generated | ✓ Done |
+| `key.properties` signing config | ✓ Done |
+| Privacy policy page (`docs/privacy-policy.html`) | ✓ Done |
+| App landing page (`docs/index.html`) | ✓ Done |
