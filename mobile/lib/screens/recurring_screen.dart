@@ -9,6 +9,8 @@ import '../providers/database_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart';
 import '../widgets/app_icons.dart';
+import '../widgets/empty_picker_row.dart';
+import '../widgets/modal_sheet.dart' show showConfirmDialog;
 
 final recurringProvider = FutureProvider.autoDispose<List<RecurringTransaction>>((ref) async {
   return ref.watch(recurringDaoProvider).getRecurring();
@@ -95,15 +97,11 @@ class RecurringScreen extends ConsumerWidget {
     final pendingAsync = ref.watch(pendingProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppStrings.get('recurring')),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_alarm),
-            tooltip: AppStrings.get('add_recurring'),
-            onPressed: () => _showAddRecurringSheet(context, ref),
-          ),
-        ],
+      appBar: AppBar(title: Text(AppStrings.get('recurring'))),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddRecurringSheet(context, ref),
+        tooltip: AppStrings.get('add_recurring'),
+        child: const Icon(Icons.add),
       ),
       body: bucketsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -256,9 +254,7 @@ class RecurringScreen extends ConsumerWidget {
             '${item.isAutopay == 1 ? ' • Auto-pay' : ''}',
             style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
           ),
-          trailing: dim
-              ? null
-              : PopupMenuButton(
+          trailing: PopupMenuButton(
                   itemBuilder: (ctx) => [
                     PopupMenuItem(value: 'edit', child: Text(AppStrings.get('edit'))),
                     PopupMenuItem(
@@ -270,6 +266,14 @@ class RecurringScreen extends ConsumerWidget {
                     if (value == 'edit') {
                       _showEditRecurringSheet(context, ref, item);
                     } else if (value == 'delete') {
+                      final confirmed = await showConfirmDialog(
+                        context: context,
+                        title: 'Delete recurring?',
+                        message: '"${item.name}" will be permanently deleted.',
+                        confirmText: 'Delete',
+                        isDangerous: true,
+                      );
+                      if (!confirmed) return;
                       await ref.read(recurringDaoProvider).deleteRecurring(item.id);
                       ref.invalidate(recurringProvider);
                       ref.invalidate(recurringBucketsProvider);
@@ -398,6 +402,17 @@ class RecurringScreen extends ConsumerWidget {
                         .get(),
                     builder: (context, snapshot) {
                       final categories = snapshot.data ?? [];
+                      if (categories.isEmpty) {
+                        return const EmptyPickerRow(
+                          icon: Icons.category_outlined,
+                          label: 'No categories yet',
+                          dialogTitle: 'No categories yet',
+                          dialogMessage:
+                              'You need at least one category to assign to this recurring expense.\n\n'
+                              'Go to: More → Settings → Categories\n\n'
+                              'Default categories are added automatically on a fresh install.',
+                        );
+                      }
                       return DropdownButtonFormField<String>(
                         value: selectedCategory,
                         decoration: InputDecoration(labelText: AppStrings.get('category')),
@@ -415,6 +430,17 @@ class RecurringScreen extends ConsumerWidget {
                   future: ref.read(accountDaoProvider).getAccounts(),
                   builder: (context, snapshot) {
                     final accounts = snapshot.data ?? [];
+                    if (accounts.isEmpty) {
+                      return const EmptyPickerRow(
+                        icon: Icons.account_balance_outlined,
+                        label: 'No accounts yet',
+                        dialogTitle: 'No accounts yet',
+                        dialogMessage:
+                            'You need at least one account to link autopay to.\n\n'
+                            'Go to the Accounts tab (🏦) and tap + to add one.\n\n'
+                            'A Cash account is created automatically on a fresh install.',
+                      );
+                    }
                     return DropdownButtonFormField<String>(
                       value: selectedAccountId,
                       decoration:
@@ -565,6 +591,17 @@ class RecurringScreen extends ConsumerWidget {
                         .get(),
                     builder: (context, snapshot) {
                       final categories = snapshot.data ?? [];
+                      if (categories.isEmpty) {
+                        return const EmptyPickerRow(
+                          icon: Icons.category_outlined,
+                          label: 'No categories yet',
+                          dialogTitle: 'No categories yet',
+                          dialogMessage:
+                              'You need at least one category to assign to this recurring expense.\n\n'
+                              'Go to: More → Settings → Categories\n\n'
+                              'Default categories are added automatically on a fresh install.',
+                        );
+                      }
                       return DropdownButtonFormField<String>(
                         value: selectedCategory,
                         decoration: InputDecoration(labelText: AppStrings.get('category')),
@@ -584,6 +621,17 @@ class RecurringScreen extends ConsumerWidget {
                   future: ref.read(accountDaoProvider).getAccounts(),
                   builder: (context, snapshot) {
                     final accounts = snapshot.data ?? [];
+                    if (accounts.isEmpty) {
+                      return const EmptyPickerRow(
+                        icon: Icons.account_balance_outlined,
+                        label: 'No accounts yet',
+                        dialogTitle: 'No accounts yet',
+                        dialogMessage:
+                            'You need at least one account to link autopay to.\n\n'
+                            'Go to the Accounts tab (🏦) and tap + to add one.\n\n'
+                            'A Cash account is created automatically on a fresh install.',
+                      );
+                    }
                     return DropdownButtonFormField<String>(
                       value: selectedAccountId,
                       decoration:

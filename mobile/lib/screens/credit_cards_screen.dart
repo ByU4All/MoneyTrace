@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/database.dart';
 import '../l10n/strings.dart';
+import '../providers/dashboard_provider.dart';
 import '../providers/database_provider.dart';
+import '../screens/accounts_screen.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart';
 import '../widgets/progress_bar.dart';
@@ -23,6 +25,11 @@ class CreditCardsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(AppStrings.get('credit_cards'))),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddCreditCardSheet(context, ref),
+        tooltip: AppStrings.get('credit_cards'),
+        child: const Icon(Icons.add),
+      ),
       body: cardsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error: $err')),
@@ -98,6 +105,97 @@ class CreditCardsScreen extends ConsumerWidget {
             },
           );
         },
+      ),
+    );
+  }
+
+  void _showAddCreditCardSheet(BuildContext context, WidgetRef ref) {
+    final nameCtrl = TextEditingController();
+    final institutionCtrl = TextEditingController();
+    final limitCtrl = TextEditingController();
+    final billingDayCtrl = TextEditingController();
+    final dueDayCtrl = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SingleChildScrollView(
+        padding: EdgeInsets.only(
+          left: 16, right: 16, top: 16,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(AppStrings.get('credit_cards'),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: nameCtrl,
+              decoration: InputDecoration(labelText: AppStrings.get('account_name')),
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: institutionCtrl,
+              decoration: InputDecoration(labelText: AppStrings.get('institution_optional')),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: limitCtrl,
+              decoration: InputDecoration(labelText: AppStrings.get('credit_limit')),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: billingDayCtrl,
+                    decoration: InputDecoration(labelText: AppStrings.get('billing_day')),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: dueDayCtrl,
+                    decoration: InputDecoration(labelText: AppStrings.get('due_day')),
+                    keyboardType: TextInputType.number,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameCtrl.text.trim().isEmpty) return;
+                final creditLimit = (int.tryParse(limitCtrl.text) ?? 0) * 100;
+                await ref.read(accountDaoProvider).createAccount(
+                  name: nameCtrl.text.trim(),
+                  type: 'credit_card',
+                  institution: institutionCtrl.text.trim().isNotEmpty
+                      ? institutionCtrl.text.trim()
+                      : null,
+                  isCredit: true,
+                  creditLimit: creditLimit,
+                  billingDay: int.tryParse(billingDayCtrl.text),
+                  dueDay: int.tryParse(dueDayCtrl.text),
+                );
+                ref.invalidate(creditCardsProvider);
+                ref.invalidate(accountsProvider);
+                ref.invalidate(dashboardProvider);
+                if (context.mounted) Navigator.pop(context);
+              },
+              child: Text(AppStrings.get('credit_cards')),
+            ),
+          ],
+        ),
       ),
     );
   }

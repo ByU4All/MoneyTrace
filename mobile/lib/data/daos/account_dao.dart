@@ -67,6 +67,7 @@ class AccountDao {
 
   Future<bool> updateAccount(String id, {
     String? name,
+    String? type,
     String? institution,
     String? last4Digits,
     String? color,
@@ -79,6 +80,7 @@ class AccountDao {
   }) async {
     final companion = AccountsCompanion(
       name: name != null ? Value(name) : const Value.absent(),
+      type: type != null ? Value(type) : const Value.absent(),
       institution: institution != null ? Value(institution) : const Value.absent(),
       last4Digits: last4Digits != null ? Value(last4Digits) : const Value.absent(),
       color: color != null ? Value(color) : const Value.absent(),

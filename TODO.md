@@ -87,22 +87,76 @@
 
 ---
 
+## Mobile App (Flutter) — v0.1.5 (2026-06-24)
+
+### 1. Fresh Install Onboarding
+- [x] 5-page onboarding flow (Welcome, Budget, Account, Categories, Done) shown on first launch (2026-06-24)
+- [x] First-run detected via `onboarding_complete` settings key; returning users go straight to dashboard (2026-06-24)
+- [x] Budget set during onboarding saved via SettingsDao (2026-06-24)
+- [x] Optional bank/UPI account creation on page 3 (2026-06-24)
+- [x] Page 4 shows the 11 seeded categories; user can add custom ones inline (2026-06-24)
+- [x] Skip-all available on pages 1–3; completion writes flag and transitions to MainShell (2026-06-24)
+
+### 2. Default Seeding on Fresh Install
+- [x] 11 default categories seeded on `onCreate`: Food & Dining, Transport, Shopping, Entertainment, Bills & Utilities, Health, Travel, Salary, EMI, Investment, Other (2026-06-24)
+- [x] Default Cash account seeded on `onCreate` (matches web v0.2 behaviour) (2026-06-24)
+- [x] Seeding is idempotent (guarded by row-count check; won't duplicate) (2026-06-24)
+
+### 3. Split Amount Calculation Fix
+- [x] Split bill now divides total by (friends + you), not just friends (2026-06-24)
+- [x] Example: ₹100 split with 1 friend → ₹50 each (was ₹100 to the friend) (2026-06-24)
+
+### 4. Empty Picker States
+- [x] Accounts tab: blank "no accounts yet" text replaced with icon + description + Add Account button (2026-06-24)
+- [x] Shared `EmptyPickerRow` widget (`widgets/empty_picker_row.dart`) — amber-bordered tappable row that opens an AlertDialog with OK button (2026-06-24)
+- [x] Applied to all category and account dropdowns across: Add Event, Edit Event, Recurring (add + edit) screens (2026-06-24)
+- [x] Dialogs explain what is missing and the exact navigation path to create it (2026-06-24)
+
+---
+
 ## Mobile App (Flutter) — Future Backlog
 
 ### 1. Bill Photo Attachments
-- [ ] Add optional photo attachments to any transaction (mobile only)
-- [ ] New `bill_photos` table: `(event_id, file_path, created_at)`; foreign key to events
-- [ ] Use `image_picker` package for camera capture or gallery selection
-- [ ] Support one or more photos per transaction
-- [ ] Show photo thumbnails in event detail view and history
-- [ ] Store as file paths (not blobs) in the local DB; files saved to app documents directory
+- [x] Add optional photo attachment to any transaction (mobile only) — single photo via `bill_photo_path` column (2026-06-24 verified)
+- [x] Use `image_picker` package for camera capture or gallery selection (2026-06-24 verified)
+- [x] Show photo preview in add/edit screens; thumbnail shown in history detail (2026-06-24 verified)
+- [x] Store as file path (not blob) in the local DB; files in app documents directory (2026-06-24 verified)
 
 ### 2. Neumorphism UI Redesign
-- [ ] Full UI style overhaul from current Nothing OS AMOLED-black theme to neumorphism design
-- [ ] Neumorphism uses soft raised/sunken elements with dual box shadows (light top-left, dark bottom-right)
-- [ ] Requires changing base background from pure black (`#000000`) to a mid-tone gray — this removes the AMOLED power saving benefit; needs explicit design sign-off before starting
-- [ ] Primary files: `mobile/lib/theme/colors.dart` (AppColors) and `mobile/lib/theme/app_theme.dart` (ThemeData)
-- [ ] All screens reference `AppColors.*` by name, so a full-theme swap is possible by editing only the two theme files
+- [x] Background changed from AMOLED black to dark-gray base (`#1C1C2C`) (2026-06-24 verified)
+- [x] Dual BoxShadow (light top-left `shadowLight`, dark bottom-right `shadowDark`) applied via `AppTheme.darkTheme()` to Card, BottomSheet, Chip, BottomNav (2026-06-24 verified)
+- [x] `NeuCard` widget available for explicit neumorphic containers (2026-06-24 verified)
+- [x] All screens reference `AppColors.*` — theme swap was done by editing only `colors.dart` + `app_theme.dart` (2026-06-24 verified)
+
+### 3. Upload Debug Symbols with Play Store Releases
+- [x] `build_release.sh` script builds AAB + APK + debug symbols zip in one command (2026-06-24)
+- [x] Uses `--split-debug-info` + `--obfuscate` flags automatically (2026-06-24)
+- [x] Outputs named with version from pubspec.yaml; prints exact Play Console upload steps (2026-06-24)
+- [ ] After each release: upload `debug-symbols-<version>.zip` to Play Console → App bundle → ⋮ → Upload deobfuscation file
+
+### 4. Multi-Photo Support (Bill Photos upgrade)
+- [x] Migrate `bill_photo_path` column to a separate `bill_photos` table: `(id, event_id, file_path, created_at)` — schema v4 with migration (2026-06-24)
+- [x] Update add/edit screens to support attaching multiple photos — horizontal `BillPhotoStrip` widget (2026-06-24)
+- [x] Export/import and delete correctly handle `bill_photos` table (2026-06-24)
+- [ ] Show all photo thumbnails when tapping a history entry (detail view)
+
+### 5. UX Audit Fixes (`mobile/` — identified 2026-06-24)
+
+**Critical — fixed (2026-06-24):**
+- [x] Category delete had no confirmation dialog (`settings_screen.dart`)
+- [x] Account delete had no confirmation dialog (`accounts_screen.dart`)
+- [x] Recurring delete had no confirmation dialog (`recurring_screen.dart`)
+
+**Broken / missing features:**
+- [x] History silently capped at 200 events — removed limit, added "Load 50 more" pagination button (2026-06-24)
+- [x] Receipt icon in history didn't appear for new multi-photo transactions — now checks `bill_photos` table via `getEventIdsWithPhotos()` (2026-06-24)
+- [x] Account type locked after creation — edit sheet now has enabled dropdown with all 6 types (2026-06-24)
+- [x] "This Month" filter used calendar month — renamed to "Budget Period", now uses `budget_reset_day` setting (2026-06-24)
+- [ ] Category text field loses typed input on any state change — controller recreated inside build (`settings_screen.dart`)
+- [ ] Recurring "upcoming" items show no edit/delete menu — action hidden when `dim = true` (`recurring_screen.dart`)
+
+**Minor / confusing:**
+- [ ] Loans screen has no empty state — blank with tiny muted text, no pointer to the + button
 
 ---
 

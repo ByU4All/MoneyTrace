@@ -12,7 +12,7 @@ import 'theme/app_theme.dart';
 import 'theme/colors.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/add_event_screen.dart';
-import 'screens/accounts_screen.dart';
+import 'screens/accounts_screen.dart' show AccountsScreen, addAccountTriggerProvider;
 import 'screens/friends_screen.dart';
 import 'screens/loans_screen.dart';
 import 'screens/recurring_screen.dart';
@@ -20,6 +20,7 @@ import 'screens/credit_cards_screen.dart';
 import 'screens/history_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/visual_summary_screen.dart';
+import 'screens/onboarding_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,7 +48,7 @@ class MoneyTraceApp extends ConsumerWidget {
                 child: child!,
               )
           : null,
-      home: const MainShell(),
+      home: const AppStartup(),
       routes: {
         '/add': (context) => const AddEventScreen(),
         '/settings': (context) => const SettingsScreen(),
@@ -55,8 +56,65 @@ class MoneyTraceApp extends ConsumerWidget {
         '/loans': (context) => const LoansScreen(),
         '/credit-cards': (context) => const CreditCardsScreen(),
         '/history': (context) => const HistoryScreen(),
+        '/recurring': (context) => const RecurringScreen(),
       },
     );
+  }
+}
+
+/// Checks onboarding status on first launch and routes accordingly.
+class AppStartup extends ConsumerStatefulWidget {
+  const AppStartup({super.key});
+
+  @override
+  ConsumerState<AppStartup> createState() => _AppStartupState();
+}
+
+class _AppStartupState extends ConsumerState<AppStartup> {
+  bool? _onboardingComplete;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboarding();
+  }
+
+  Future<void> _checkOnboarding() async {
+    try {
+      final settingsDao = ref.read(settingsDaoProvider);
+      final complete = await settingsDao.getOnboardingComplete().timeout(
+        const Duration(seconds: 8),
+        onTimeout: () => true,
+      );
+      if (mounted) setState(() => _onboardingComplete = complete);
+    } catch (_) {
+      // DB failure or timeout — skip onboarding and go straight to the app.
+      if (mounted) setState(() => _onboardingComplete = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_onboardingComplete == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('MoneyTrace', style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              )),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(color: AppColors.accent, strokeWidth: 2),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_onboardingComplete!) return const MainShell();
+    return OnboardingScreen(onComplete: () => setState(() => _onboardingComplete = true));
   }
 }
 
@@ -72,25 +130,13 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
   int _currentIndex = 0;
   late final PageController _pageController;
 
-  // Actual page screens (no placeholder for index 2)
+  // 4-tab nav: Dashboard | History | Accounts | More (direct 1:1 mapping)
   static const _pages = [
-    DashboardScreen(),  // nav index 0 → page 0
-    AccountsScreen(),   // nav index 1 → page 1
-    RecurringScreen(),  // nav index 3 → page 2
-    _MoreScreen(),      // nav index 4 → page 3
+    DashboardScreen(),
+    HistoryScreen(),
+    AccountsScreen(),
+    _MoreScreen(),
   ];
-
-  // Maps nav bar index → page index (skipping index 2 = Add)
-  int _navToPage(int navIndex) {
-    if (navIndex <= 1) return navIndex;
-    return navIndex - 1; // 3→2, 4→3
-  }
-
-  // Maps page index → nav bar index
-  int _pageToNav(int pageIndex) {
-    if (pageIndex <= 1) return pageIndex;
-    return pageIndex + 1; // 2→3, 3→4
-  }
 
   static const _widgetChannel = MethodChannel('com.luke.dev.moneytrace/widget');
 
@@ -140,11 +186,7 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
         case 'receivables':
           if (mounted) Navigator.pushNamed(context, '/friends');
         case 'reserved':
-          // Navigate to recurring screen
-          if (mounted) {
-            setState(() => _currentIndex = 3); // recurring nav index
-            _pageController.jumpToPage(2); // recurring page index
-          }
+          if (mounted) Navigator.pushNamed(context, '/recurring');
         // 'dashboard' or anything else → just open the app (already on dashboard)
       }
     } catch (_) {
@@ -172,36 +214,51 @@ class _MainShellState extends ConsumerState<MainShell> with WidgetsBindingObserv
     }
   }
 
+  Widget? _buildFab() {
+    switch (_currentIndex) {
+      case 0: // Dashboard — Add Transaction (red)
+        return FloatingActionButton(
+          onPressed: () => Navigator.pushNamed(context, '/add'),
+          backgroundColor: AppColors.accent,
+          foregroundColor: Colors.white,
+          tooltip: 'Add Transaction',
+          child: const Icon(Icons.add),
+        );
+      case 2: // Accounts — Add Account (blue)
+        return FloatingActionButton(
+          onPressed: () => ref.read(addAccountTriggerProvider.notifier).state++,
+          backgroundColor: AppColors.info,
+          foregroundColor: Colors.white,
+          tooltip: 'Add Account',
+          child: const Icon(Icons.add),
+        );
+      default: // History (1) or More (3) — no FAB
+        return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: PageView(
         controller: _pageController,
         onPageChanged: (pageIndex) {
-          setState(() => _currentIndex = _pageToNav(pageIndex));
+          setState(() => _currentIndex = pageIndex);
         },
         children: _pages,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => Navigator.pushNamed(context, '/add'),
-        child: const Icon(Icons.add, size: 28),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: _buildFab(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
-          if (index == 2) {
-            Navigator.pushNamed(context, '/add');
-          } else {
-            setState(() => _currentIndex = index);
-            _pageController.jumpToPage(_navToPage(index));
-          }
+          setState(() => _currentIndex = index);
+          _pageController.jumpToPage(index);
         },
         items: [
           BottomNavigationBarItem(icon: const Icon(Icons.dashboard), label: AppStrings.get('nav_dashboard')),
+          BottomNavigationBarItem(icon: const Icon(Icons.history), label: AppStrings.get('menu_history')),
           BottomNavigationBarItem(icon: const Icon(Icons.account_balance), label: AppStrings.get('nav_accounts')),
-          BottomNavigationBarItem(icon: const Icon(Icons.add_circle_outline), label: AppStrings.get('nav_add')),
-          BottomNavigationBarItem(icon: const Icon(Icons.repeat), label: AppStrings.get('nav_recurring')),
           BottomNavigationBarItem(icon: const Icon(Icons.more_horiz), label: AppStrings.get('nav_more')),
         ],
       ),
@@ -221,9 +278,9 @@ class _MoreScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _menuItem(context, Icons.people, AppStrings.get('menu_friends'), '/friends'),
+          _menuItem(context, Icons.repeat, AppStrings.get('nav_recurring'), '/recurring'),
           _menuItem(context, Icons.receipt_long, AppStrings.get('menu_loans'), '/loans'),
           _menuItem(context, Icons.credit_card, AppStrings.get('menu_credit_cards'), '/credit-cards'),
-          _menuItem(context, Icons.history, AppStrings.get('menu_history'), '/history'),
           _menuItem(context, Icons.settings, AppStrings.get('menu_settings'), '/settings'),
         ],
       ),

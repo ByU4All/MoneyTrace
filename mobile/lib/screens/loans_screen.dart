@@ -29,15 +29,11 @@ class LoansScreen extends ConsumerWidget {
     final loansAsync = ref.watch(loansProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(AppStrings.get('loans')),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_card),
-            tooltip: AppStrings.get('add_loan'),
-            onPressed: () => _showAddLoanSheet(context, ref),
-          ),
-        ],
+      appBar: AppBar(title: Text(AppStrings.get('loans'))),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showAddLoanSheet(context, ref),
+        tooltip: AppStrings.get('add_loan'),
+        child: const Icon(Icons.add),
       ),
       body: loansAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -45,7 +41,16 @@ class LoansScreen extends ConsumerWidget {
         data: (loans) {
           if (loans.isEmpty) {
             return Center(
-              child: Text(AppStrings.get('no_active_loans'), style: const TextStyle(color: AppColors.textMuted)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.account_balance_outlined, size: 48, color: AppColors.textMuted),
+                  const SizedBox(height: 12),
+                  Text(AppStrings.get('no_active_loans'), style: const TextStyle(color: AppColors.textMuted)),
+                  const SizedBox(height: 6),
+                  const Text('Tap + to add your first loan', style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                ],
+              ),
             );
           }
           return ListView.builder(

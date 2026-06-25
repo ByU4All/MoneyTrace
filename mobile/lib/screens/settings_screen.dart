@@ -10,7 +10,10 @@ import '../l10n/strings.dart';
 import '../providers/database_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/locale_provider.dart';
+import 'accounts_screen.dart' show accountsProvider;
+import 'history_screen.dart' show historyProvider;
 import '../theme/colors.dart';
+import '../widgets/modal_sheet.dart' show showConfirmDialog;
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -26,6 +29,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   final _budgetController = TextEditingController();
   final _resetDayController = TextEditingController();
   final _carryOverCapController = TextEditingController();
+  final _categoryNameController = TextEditingController();
   bool _carryOverEnabled = false;
   bool _carryOverNegative = false;
 
@@ -59,6 +63,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     _budgetController.dispose();
     _resetDayController.dispose();
     _carryOverCapController.dispose();
+    _categoryNameController.dispose();
     super.dispose();
   }
 
@@ -147,19 +152,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             value: _carryOverEnabled,
             activeColor: AppColors.accent,
             onChanged: (v) => setState(() => _carryOverEnabled = v),
+            contentPadding: EdgeInsets.zero,
           ),
           if (_carryOverEnabled) ...[
+            const SizedBox(height: 8),
             TextField(
               controller: _carryOverCapController,
               decoration: InputDecoration(labelText: AppStrings.get('carry_over_cap')),
               keyboardType: TextInputType.number,
             ),
-            const SizedBox(height: 8),
             SwitchListTile(
               title: Text(AppStrings.get('carry_negative')),
               value: _carryOverNegative,
               activeColor: AppColors.accent,
               onChanged: (v) => setState(() => _carryOverNegative = v),
+              contentPadding: EdgeInsets.zero,
             ),
           ],
           const SizedBox(height: 24),
@@ -174,8 +181,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
 
   Widget _buildCategoriesTab() {
     final db = ref.watch(databaseProvider);
-    final categoryNameCtrl = TextEditingController();
-
     return FutureBuilder(
       future: db.select(db.categories).get(),
       builder: (context, snapshot) {
@@ -189,20 +194,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 children: [
                   Expanded(
                     child: TextField(
-                      controller: categoryNameCtrl,
+                      controller: _categoryNameController,
                       decoration: InputDecoration(hintText: AppStrings.get('new_category_name')),
                     ),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: () async {
-                      final name = categoryNameCtrl.text.trim();
+                      final name = _categoryNameController.text.trim();
                       if (name.isEmpty) return;
                       await db.into(db.categories).insert(CategoriesCompanion.insert(
                         id: DateTime.now().millisecondsSinceEpoch.toString(),
                         name: name,
                       ));
-                      categoryNameCtrl.clear();
+                      _categoryNameController.clear();
                       setState(() {});
                     },
                     child: Text(AppStrings.get('add')),
@@ -217,17 +222,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   final cat = categories[index];
                   return ListTile(
                     title: Text(cat.name),
-                    trailing: cat.isDefault == 0
-                        ? IconButton(
-                            icon: const Icon(Icons.delete, color: AppColors.danger),
-                            onPressed: () async {
-                              await (db.delete(db.categories)
-                                    ..where((c) => c.id.equals(cat.id)))
-                                  .go();
-                              setState(() {});
-                            },
-                          )
-                        : Text(AppStrings.get('default_label'), style: const TextStyle(color: AppColors.textMuted, fontSize: 12)),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete, color: AppColors.danger),
+                      onPressed: () async {
+                        final confirmed = await showConfirmDialog(
+                          context: context,
+                          title: 'Delete category?',
+                          message: '"${cat.name}" will be removed. Existing transactions using this category will lose their label.',
+                          confirmText: 'Delete',
+                          isDangerous: true,
+                        );
+                        if (!confirmed) return;
+                        await (db.delete(db.categories)
+                              ..where((c) => c.id.equals(cat.id)))
+                            .go();
+                        setState(() {});
+                      },
+                    ),
                   );
                 },
               ),
@@ -470,6 +481,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       await dataDao.importAll(data);
 
       ref.invalidate(dashboardProvider);
+      ref.invalidate(historyProvider);
+      ref.invalidate(accountsProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -508,6 +521,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
       final dataDao = ref.read(dataDaoProvider);
       await dataDao.clearAllData();
       ref.invalidate(dashboardProvider);
+      ref.invalidate(historyProvider);
+      ref.invalidate(accountsProvider);
       await _loadSettings();
 
       if (mounted) {

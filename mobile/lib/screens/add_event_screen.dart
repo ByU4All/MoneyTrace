@@ -13,6 +13,8 @@ import '../providers/database_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart' show formatAmount;
+import '../widgets/bill_photo_strip.dart';
+import '../widgets/empty_picker_row.dart';
 import 'history_screen.dart' show historyProvider;
 import 'accounts_screen.dart' show accountsProvider;
 
@@ -53,8 +55,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
   ];
 
   bool _isSettlePaid = true; // For settle tab
-  String? _selectedPhotoPath;
-
+  final List<String> _selectedPhotoPaths = [];
   @override
   void initState() {
     super.initState();
@@ -87,7 +88,8 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
     final amountRupees = double.tryParse(_amountController.text.trim()) ?? 0;
     final totalPaise = (amountRupees * 100).round();
     final n = _selectedFriendIds.length;
-    final share = n > 0 ? (totalPaise ~/ n) : 0;
+    // Divide by n+1: friends + the person entering the expense
+    final share = n > 0 ? (totalPaise ~/ (n + 1)) : 0;
     for (final id in _selectedFriendIds) {
       _splitControllers[id] = TextEditingController(
         text: (share / 100).toStringAsFixed(2),
@@ -115,11 +117,14 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
     if (!await receiptsDir.exists()) await receiptsDir.create(recursive: true);
     final dest = '${receiptsDir.path}/${const Uuid().v4()}.jpg';
     await File(picked.path).copy(dest);
-    if (_selectedPhotoPath != null) {
-      final old = File(_selectedPhotoPath!);
-      if (await old.exists()) await old.delete();
-    }
-    if (mounted) setState(() => _selectedPhotoPath = dest);
+    if (mounted) setState(() => _selectedPhotoPaths.add(dest));
+  }
+
+  Future<void> _removePhoto(int index) async {
+    final path = _selectedPhotoPaths[index];
+    setState(() => _selectedPhotoPaths.removeAt(index));
+    final f = File(path);
+    if (await f.exists()) await f.delete();
   }
 
   void _showPhotoSourceSheet() {
@@ -198,6 +203,9 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
           unselectedLabelColor: AppColors.textMuted,
           onTap: (_) => setState(() {
             _isSplit = false;
+            _selectedFriendIds.clear();
+            for (final c in _splitControllers.values) c.dispose();
+            _splitControllers.clear();
           }),
           tabs: _tabKeys.map((t) => Tab(text: AppStrings.get(t.$1))).toList(),
         ),
@@ -254,8 +262,20 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                     .get(),
                 builder: (context, snapshot) {
                   final categories = snapshot.data ?? [];
+                  if (categories.isEmpty) {
+                    return const EmptyPickerRow(
+                      icon: Icons.category_outlined,
+                      label: 'No categories yet',
+                      dialogTitle: 'No categories yet',
+                      dialogMessage:
+                          'You need to create at least one category before logging an expense.\n\n'
+                          'Go to: More → Settings → Categories\n\n'
+                          'Default categories are added automatically on a fresh install.',
+                    );
+                  }
                   return DropdownButtonFormField<String>(
                     value: _selectedCategory,
+                    menuMaxHeight: 280,
                     decoration: InputDecoration(
                       labelText: AppStrings.get('category'),
                       prefixIcon: const Icon(Icons.category),
@@ -288,7 +308,13 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                     value: _isSplit,
                     onChanged: (v) => setState(() {
                       _isSplit = v;
-                      if (v) _initSplitControllers();
+                      if (v) {
+                        _initSplitControllers();
+                      } else {
+                        _selectedFriendIds.clear();
+                        for (final c in _splitControllers.values) c.dispose();
+                        _splitControllers.clear();
+                      }
                     }),
                   ),
                 ],
@@ -314,31 +340,35 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                     ],
                   ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      ..._friends.map((f) {
-                        final selected = _selectedFriendIds.contains(f.id);
-                        return FilterChip(
-                          label: Text(f.name),
-                          selected: selected,
-                          onSelected: (on) => setState(() {
-                            if (on) {
-                              _selectedFriendIds.add(f.id);
-                            } else {
-                              _selectedFriendIds.remove(f.id);
-                            }
-                            if (_isSplit) _initSplitControllers();
-                          }),
-                        );
-                      }),
-                      ActionChip(
-                        avatar: const Icon(Icons.add, size: 16),
-                        label: const Text('New'),
-                        onPressed: _showAddFriendDialog,
-                      ),
-                    ],
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ..._friends.map((f) {
+                          final selected = _selectedFriendIds.contains(f.id);
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: FilterChip(
+                              label: Text(f.name),
+                              selected: selected,
+                              onSelected: (on) => setState(() {
+                                if (on) {
+                                  _selectedFriendIds.add(f.id);
+                                } else {
+                                  _selectedFriendIds.remove(f.id);
+                                }
+                                if (_isSplit) _initSplitControllers();
+                              }),
+                            ),
+                          );
+                        }),
+                        ActionChip(
+                          avatar: const Icon(Icons.add, size: 16),
+                          label: const Text('New'),
+                          onPressed: _showAddFriendDialog,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -405,6 +435,17 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                 future: ref.read(accountDaoProvider).getAccounts(),
                 builder: (context, snapshot) {
                   final accounts = snapshot.data ?? [];
+                  if (accounts.isEmpty) {
+                    return const EmptyPickerRow(
+                      icon: Icons.account_balance_outlined,
+                      label: 'No accounts yet',
+                      dialogTitle: 'No accounts yet',
+                      dialogMessage:
+                          'A transfer requires at least two accounts.\n\n'
+                          'Go to the Accounts tab (🏦) and tap + to add your accounts.\n\n'
+                          'A Cash account is created automatically on a fresh install.',
+                    );
+                  }
                   return Column(
                     children: [
                       DropdownButtonFormField<String>(
@@ -451,6 +492,17 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
                 future: ref.read(accountDaoProvider).getAccounts(),
                 builder: (context, snapshot) {
                   final accounts = snapshot.data ?? [];
+                  if (accounts.isEmpty) {
+                    return const EmptyPickerRow(
+                      icon: Icons.account_balance_outlined,
+                      label: 'No accounts yet',
+                      dialogTitle: 'No accounts yet',
+                      dialogMessage:
+                          'You need at least one account to record this transaction.\n\n'
+                          'Go to the Accounts tab (🏦) and tap + to add one.\n\n'
+                          'A Cash account is created automatically on a fresh install.',
+                    );
+                  }
                   if (_requiresAccount && accounts.length == 1 && _selectedAccountId == null) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (mounted) setState(() => _selectedAccountId = accounts.first.id);
@@ -509,61 +561,39 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
               ),
             ],
 
-            // Bill photo
+            // Bill photos
             const SizedBox(height: 16),
-            if (_selectedPhotoPath != null) ...[
-              Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.file(
-                      File(_selectedPhotoPath!),
-                      height: 160,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: GestureDetector(
-                      onTap: () => setState(() => _selectedPhotoPath = null),
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          color: Colors.black54,
-                          shape: BoxShape.circle,
-                        ),
-                        padding: const EdgeInsets.all(2),
-                        child: const Icon(Icons.close, color: Colors.white, size: 18),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              TextButton.icon(
-                onPressed: _showPhotoSourceSheet,
-                icon: const Icon(Icons.edit, size: 14),
-                label: const Text('Change photo'),
-              ),
-            ] else
-              OutlinedButton.icon(
-                onPressed: _showPhotoSourceSheet,
-                icon: const Icon(Icons.receipt_long),
-                label: const Text('Attach Bill Photo'),
-              ),
+            BillPhotoStrip(
+              paths: _selectedPhotoPaths,
+              onAdd: _showPhotoSourceSheet,
+              onRemove: _removePhoto,
+            ),
 
             const SizedBox(height: 24),
 
-            // Submit
-            ElevatedButton(
-              onPressed: _submit,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  AppStrings.get('add_transaction'),
-                  style: const TextStyle(fontSize: 16),
+            // Submit buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _submit(addAnother: true),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text('Save & Add Another', style: TextStyle(fontSize: 13)),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _submit,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: Text(AppStrings.get('add_transaction'), style: const TextStyle(fontSize: 14)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -627,7 +657,7 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
     }
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit({bool addAnother = false}) async {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -688,8 +718,16 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
         fromAccountId: _needsTransferAccounts ? _selectedFromAccountId : null,
         toAccountId: _needsTransferAccounts ? _selectedToAccountId : null,
         eventDate: dateStr,
-        billPhotoPath: _selectedPhotoPath,
+        billPhotoPath: null,
       );
+
+      // Save bill photos to the bill_photos table
+      if (_selectedPhotoPaths.isNotEmpty) {
+        final billPhotoDao = ref.read(billPhotoDaoProvider);
+        for (final path in _selectedPhotoPaths) {
+          await billPhotoDao.addPhoto(eventId, path);
+        }
+      }
 
       if (friendList.isNotEmpty) {
         await eventDao.tagFriends(eventId, friendList);
@@ -742,9 +780,25 @@ class _AddEventScreenState extends ConsumerState<AddEventScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.get('transaction_added'))),
+          const SnackBar(
+            content: Text('Transaction saved ✓'),
+            duration: Duration(seconds: 2),
+          ),
         );
-        Navigator.pop(context);
+        if (addAnother) {
+          for (final c in _splitControllers.values) {
+            c.dispose();
+          }
+          setState(() {
+            _amountController.clear();
+            _selectedPhotoPaths.clear();
+            _isSplit = false;
+            _selectedFriendIds.clear();
+            _splitControllers.clear();
+          });
+        } else {
+          Navigator.pop(context, true);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -794,3 +848,4 @@ class _AddFriendDialogState extends State<_AddFriendDialog> {
         ],
       );
 }
+

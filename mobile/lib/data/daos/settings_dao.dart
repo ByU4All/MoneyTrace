@@ -93,6 +93,15 @@ class SettingsDao {
   Future<void> setLargeText(bool value) =>
       _set('large_text', value ? 'true' : 'false');
 
+  // Onboarding complete
+  Future<bool> getOnboardingComplete() async {
+    final v = await _get('onboarding_complete');
+    return v == 'true';
+  }
+
+  Future<void> setOnboardingComplete(bool value) =>
+      _set('onboarding_complete', value ? 'true' : 'false');
+
   // Get all settings as a map
   Future<Map<String, dynamic>> getAllSettings() async {
     return {

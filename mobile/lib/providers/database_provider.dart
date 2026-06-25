@@ -9,6 +9,7 @@ import '../data/daos/loan_dao.dart';
 import '../data/daos/credit_card_dao.dart';
 import '../data/daos/settings_dao.dart';
 import '../data/daos/audit_dao.dart';
+import '../data/daos/bill_photo_dao.dart';
 import '../data/daos/data_dao.dart';
 
 /// Global database instance.
@@ -27,6 +28,7 @@ final loanDaoProvider = Provider((ref) => LoanDao(ref.watch(databaseProvider)));
 final creditCardDaoProvider = Provider((ref) => CreditCardDao(ref.watch(databaseProvider)));
 final settingsDaoProvider = Provider((ref) => SettingsDao(ref.watch(databaseProvider)));
 final auditDaoProvider = Provider((ref) => AuditDao(ref.watch(databaseProvider)));
+final billPhotoDaoProvider = Provider((ref) => BillPhotoDao(ref.watch(databaseProvider)));
 final dataDaoProvider = Provider((ref) => DataDao(
   ref.watch(databaseProvider),
   ref.watch(settingsDaoProvider),

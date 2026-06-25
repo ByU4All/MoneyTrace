@@ -25,7 +25,7 @@ cd mobile
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # Drift codegen
 flutter run                    # Debug on connected device
-flutter build apk --release    # Build release APK
+./build_release.sh             # Build release AAB + APK + debug symbols (Play Store)
 flutter install                # Install APK to device
 
 # Android/Termux setup (for web version)

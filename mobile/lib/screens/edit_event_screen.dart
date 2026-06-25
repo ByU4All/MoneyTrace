@@ -14,7 +14,9 @@ import '../providers/database_provider.dart';
 import '../providers/dashboard_provider.dart';
 import '../providers/friend_history_provider.dart';
 import '../theme/colors.dart';
+import '../widgets/bill_photo_strip.dart';
 import '../widgets/modal_sheet.dart';
+import '../widgets/empty_picker_row.dart';
 import 'history_screen.dart' show historyProvider;
 import 'accounts_screen.dart' show accountsProvider;
 
@@ -45,7 +47,11 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
   String? _selectedFromAccountId;
   String? _selectedToAccountId;
   late DateTime _eventDate;
-  String? _selectedPhotoPath;
+  // Multi-photo: parallel lists; _existingPhotoIds[i] is null for new (not yet in DB) photos.
+  final List<String> _photoPaths = [];
+  final List<String?> _existingPhotoIds = [];
+  final Set<String> _removedPhotoIds = {};
+  final Set<String> _removedPhotoPaths = {};
   List<Friend> _friends = [];
 
   @override
@@ -61,9 +67,9 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
     _selectedFromAccountId = e.fromAccountId;
     _selectedToAccountId = e.toAccountId;
     _eventDate = DateTime.parse(e.eventDate);
-    _selectedPhotoPath = e.billPhotoPath;
 
     _loadFriends();
+    _loadPhotos();
 
     // Pull existing multi-tags into the chip selection.
     () async {
@@ -77,6 +83,20 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
   Future<void> _loadFriends() async {
     final friends = await ref.read(friendDaoProvider).getFriends();
     if (mounted) setState(() => _friends = friends);
+  }
+
+  Future<void> _loadPhotos() async {
+    final photos = await ref.read(billPhotoDaoProvider).getPhotosForEvent(widget.event.id);
+    if (mounted) {
+      setState(() {
+        _photoPaths.clear();
+        _existingPhotoIds.clear();
+        for (final p in photos) {
+          _photoPaths.add(p.filePath);
+          _existingPhotoIds.add(p.id);
+        }
+      });
+    }
   }
 
   Future<void> _showAddFriendDialog() async {
@@ -99,11 +119,28 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
     if (!await receiptsDir.exists()) await receiptsDir.create(recursive: true);
     final dest = '${receiptsDir.path}/${const Uuid().v4()}.jpg';
     await File(picked.path).copy(dest);
-    if (_selectedPhotoPath != null) {
-      final old = File(_selectedPhotoPath!);
-      if (await old.exists()) await old.delete();
+    if (mounted) {
+      setState(() {
+        _photoPaths.add(dest);
+        _existingPhotoIds.add(null);
+      });
     }
-    if (mounted) setState(() => _selectedPhotoPath = dest);
+  }
+
+  void _removePhoto(int index) {
+    final existingId = _existingPhotoIds[index];
+    final path = _photoPaths[index];
+    if (existingId != null) {
+      _removedPhotoIds.add(existingId);
+      _removedPhotoPaths.add(path);
+    } else {
+      // Newly added, not yet in DB — delete the file immediately since cancelling is fine
+      File(path).exists().then((exists) { if (exists) File(path).delete(); });
+    }
+    setState(() {
+      _photoPaths.removeAt(index);
+      _existingPhotoIds.removeAt(index);
+    });
   }
 
   void _showPhotoSourceSheet() {
@@ -183,6 +220,20 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
             future: ref.read(databaseProvider).select(ref.read(databaseProvider).categories).get(),
             builder: (context, snapshot) {
               final categories = snapshot.data ?? [];
+              if (categories.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.only(bottom: 16),
+                  child: EmptyPickerRow(
+                    icon: Icons.category_outlined,
+                    label: 'No categories yet',
+                    dialogTitle: 'No categories yet',
+                    dialogMessage:
+                        'You need at least one category to save this expense.\n\n'
+                        'Go to: More → Settings → Categories\n\n'
+                        'Default categories are added automatically on a fresh install.',
+                  ),
+                );
+              }
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: DropdownButtonFormField<String>(
@@ -249,6 +300,17 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
             future: ref.read(accountDaoProvider).getAccounts(),
             builder: (context, snapshot) {
               final accounts = snapshot.data ?? [];
+              if (accounts.isEmpty) {
+                return const EmptyPickerRow(
+                  icon: Icons.account_balance_outlined,
+                  label: 'No accounts yet',
+                  dialogTitle: 'No accounts yet',
+                  dialogMessage:
+                      'A transfer requires at least two accounts.\n\n'
+                      'Go to the Accounts tab (🏦) and tap + to add your accounts.\n\n'
+                      'A Cash account is created automatically on a fresh install.',
+                );
+              }
               return Column(
                 children: [
                   DropdownButtonFormField<String>(
@@ -305,48 +367,13 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
           ),
         ),
 
-        // Bill photo
+        // Bill photos
         const SizedBox(height: 16),
-        if (_selectedPhotoPath != null) ...[
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.file(
-                  File(_selectedPhotoPath!),
-                  height: 160,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: GestureDetector(
-                  onTap: () => setState(() => _selectedPhotoPath = null),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.black54,
-                      shape: BoxShape.circle,
-                    ),
-                    padding: const EdgeInsets.all(2),
-                    child: const Icon(Icons.close, color: Colors.white, size: 18),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          TextButton.icon(
-            onPressed: _showPhotoSourceSheet,
-            icon: const Icon(Icons.edit, size: 14),
-            label: const Text('Change photo'),
-          ),
-        ] else
-          OutlinedButton.icon(
-            onPressed: _showPhotoSourceSheet,
-            icon: const Icon(Icons.receipt_long),
-            label: const Text('Attach Bill Photo'),
-          ),
+        BillPhotoStrip(
+          paths: _photoPaths,
+          onAdd: _showPhotoSourceSheet,
+          onRemove: _removePhoto,
+        ),
 
         const SizedBox(height: 24),
 
@@ -447,10 +474,39 @@ class _EditEventFormState extends ConsumerState<_EditEventForm> {
         fromAccountId: _isTransfer ? _selectedFromAccountId : null,
         toAccountId: _isTransfer ? _selectedToAccountId : null,
         eventDate: newDateStr,
-        billPhotoPath: _selectedPhotoPath,
       );
 
+      // Handle photo changes
+      final billPhotoDao = ref.read(billPhotoDaoProvider);
+      for (final id in _removedPhotoIds) {
+        await billPhotoDao.deletePhoto(id);
+      }
+      for (final path in _removedPhotoPaths) {
+        final f = File(path);
+        if (await f.exists()) await f.delete();
+      }
+      for (var i = 0; i < _photoPaths.length; i++) {
+        if (_existingPhotoIds[i] == null) {
+          await billPhotoDao.addPhoto(old.id, _photoPaths[i]);
+        }
+      }
+
       await eventDao.tagFriends(old.id, friendList);
+
+      // Sync split receivables: if this is an expense, update any auto-created
+      // "Split: X" receivables to match the new description and/or date.
+      if (old.type == 'expense') {
+        final newDesc = _descriptionController.text.trim();
+        final splits = await eventDao.findSplitReceivables(old.eventDate, old.description);
+        for (final split in splits) {
+          await eventDao.updateEvent(
+            split.id,
+            description: newDesc.isNotEmpty ? 'Split: $newDesc' : 'Split',
+            eventDate: newDateStr,
+          );
+        }
+      }
+
       if (old.friendId != null) {
         ref.invalidate(friendHistoryProvider(old.friendId!));
       }

@@ -4,6 +4,7 @@
 /// to ensure export/import compatibility.
 
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import 'connection/connection.dart' as connection;
 
@@ -227,6 +228,19 @@ class EventFriends extends Table {
   String get tableName => 'event_friends';
 }
 
+class BillPhotos extends Table {
+  TextColumn get id => text()();
+  TextColumn get eventId => text().named('event_id')();
+  TextColumn get filePath => text().named('file_path')();
+  TextColumn get createdAt => text().named('created_at')();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  String get tableName => 'bill_photos';
+}
+
 // ---------------------------------------------------------------------------
 // Database Class
 // ---------------------------------------------------------------------------
@@ -236,6 +250,7 @@ class EventFriends extends Table {
   Friends,
   Accounts,
   Events,
+  BillPhotos,
   Categories,
   MonthRecords,
   RecurringTransactions,
@@ -252,26 +267,80 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) async {
           await m.createAll();
+          await _seedDefaults();
         },
         onUpgrade: (m, from, to) async {
-          if (from < 3) {
-            await m.addColumn(events, events.billPhotoPath);
-          }
           if (from < 2) {
             await m.createTable(eventFriends);
-            // Backfill: every event with a primary friend_id also gets a row
-            // in event_friends so per-friend history queries see them.
             await customStatement(
               'INSERT OR IGNORE INTO event_friends (event_id, friend_id) '
               'SELECT id, friend_id FROM events WHERE friend_id IS NOT NULL',
             );
           }
+          if (from < 3) {
+            await m.addColumn(events, events.billPhotoPath);
+          }
+          if (from < 4) {
+            await m.createTable(billPhotos);
+            await customStatement(
+              'INSERT INTO bill_photos (id, event_id, file_path, created_at) '
+              'SELECT lower(hex(randomblob(16))), id, bill_photo_path, created_at '
+              'FROM events WHERE bill_photo_path IS NOT NULL',
+            );
+          }
         },
       );
+
+  static const _defaultCategoryNames = [
+    'Food & Dining',
+    'Transport',
+    'Shopping',
+    'Entertainment',
+    'Bills & Utilities',
+    'Health',
+    'Travel',
+    'Salary',
+    'EMI',
+    'Investment',
+    'Other',
+  ];
+
+  Future<void> _seedDefaults() async {
+    const uuid = Uuid();
+    final now = DateTime.now().toIso8601String().split('T')[0];
+
+    final catCount = await (selectOnly(categories)
+          ..addColumns([categories.id.count()]))
+        .map((r) => r.read(categories.id.count()))
+        .getSingle();
+    if (catCount == 0) {
+      for (final name in _defaultCategoryNames) {
+        await into(categories).insert(CategoriesCompanion.insert(
+          id: uuid.v4(),
+          name: name,
+          isDefault: const Value(1),
+        ));
+      }
+    }
+
+    final accCount = await (selectOnly(accounts)
+          ..addColumns([accounts.id.count()]))
+        .map((r) => r.read(accounts.id.count()))
+        .getSingle();
+    if (accCount == 0) {
+      await into(accounts).insert(AccountsCompanion.insert(
+        id: uuid.v4(),
+        name: 'Cash',
+        type: 'cash',
+        isDefault: const Value(1),
+        createdAt: now,
+      ));
+    }
+  }
 }

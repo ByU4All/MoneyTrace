@@ -29,9 +29,8 @@ String formatAmount(int paise, {bool showSign = false}) {
   );
   final formatted = formatter.format(rupees.abs());
 
-  if (showSign && paise != 0) {
-    return paise > 0 ? '+$formatted' : '-$formatted';
-  }
+  if (paise < 0) return '-$formatted';
+  if (showSign && paise > 0) return '+$formatted';
   return formatted;
 }
 

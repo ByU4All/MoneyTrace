@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../database.dart';
@@ -35,6 +37,9 @@ class DataDao {
     final accounts = await (_db.select(_db.accounts)).get();
     final events = await (_db.select(_db.events)
           ..orderBy([(e) => OrderingTerm.desc(e.eventDate)]))
+        .get();
+    final billPhotos = await (_db.select(_db.billPhotos)
+          ..orderBy([(p) => OrderingTerm.asc(p.createdAt)]))
         .get();
     final monthRecords = await (_db.select(_db.monthRecords)
           ..orderBy([(m) => OrderingTerm.desc(m.year), (m) => OrderingTerm.desc(m.month)]))
@@ -79,22 +84,46 @@ class DataDao {
         'is_default': a.isDefault,
         'created_at': a.createdAt,
       }).toList(),
-      'events': events.map((e) => {
-        'id': e.id,
-        'type': e.type,
-        'amount': e.amount,
-        'category': e.category,
-        'description': e.description,
-        'friend_id': e.friendId,
-        'account_id': e.accountId,
-        'from_account_id': e.fromAccountId,
-        'to_account_id': e.toAccountId,
-        'recurring_id': e.recurringId,
-        'loan_id': e.loanId,
-        'event_date': e.eventDate,
-        'created_at': e.createdAt,
-        'bill_photo_path': e.billPhotoPath,
-      }).toList(),
+      'events': await Future.wait(events.map((e) async {
+        String? photoData;
+        if (e.billPhotoPath != null) {
+          try {
+            final f = File(e.billPhotoPath!);
+            if (await f.exists()) photoData = base64Encode(await f.readAsBytes());
+          } catch (_) {}
+        }
+        return {
+          'id': e.id,
+          'type': e.type,
+          'amount': e.amount,
+          'category': e.category,
+          'description': e.description,
+          'friend_id': e.friendId,
+          'account_id': e.accountId,
+          'from_account_id': e.fromAccountId,
+          'to_account_id': e.toAccountId,
+          'recurring_id': e.recurringId,
+          'loan_id': e.loanId,
+          'event_date': e.eventDate,
+          'created_at': e.createdAt,
+          'bill_photo_path': e.billPhotoPath,
+          if (photoData != null) 'bill_photo_data_base64': photoData,
+        };
+      })),
+      'bill_photos': await Future.wait(billPhotos.map((p) async {
+        String? photoData;
+        try {
+          final f = File(p.filePath);
+          if (await f.exists()) photoData = base64Encode(await f.readAsBytes());
+        } catch (_) {}
+        return {
+          'id': p.id,
+          'event_id': p.eventId,
+          'file_path': p.filePath,
+          'created_at': p.createdAt,
+          if (photoData != null) 'image_data_base64': photoData,
+        };
+      })),
       'month_records': monthRecords.map((m) => {
         'id': m.id,
         'year': m.year,
@@ -169,10 +198,45 @@ class DataDao {
     };
   }
 
+  /// Decode base64 photo data from backup and write to the receipts directory.
+  /// Returns the new absolute file path, or null if data is missing/corrupt.
+  Future<String?> _restorePhoto(String id, String? base64Data, String ext) async {
+    if (base64Data == null) return null;
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final receiptsDir = Directory('${dir.path}/receipts');
+      if (!await receiptsDir.exists()) await receiptsDir.create(recursive: true);
+      final file = File('${receiptsDir.path}/$id.$ext');
+      await file.writeAsBytes(base64Decode(base64Data));
+      return file.path;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Import data from a backup map. Replaces all existing data.
   Future<void> importAll(Map<String, dynamic> data) async {
+    // Restore photo files from base64 before opening the DB transaction
+    // (filesystem I/O cannot run inside a Drift transaction).
+    final Map<String, String> billPhotoNewPaths = {}; // photo id → new path
+    for (final p in (data['bill_photos'] as List? ?? [])) {
+      final newPath = await _restorePhoto(p['id'] as String, p['image_data_base64'] as String?, 'jpg');
+      if (newPath != null) billPhotoNewPaths[p['id'] as String] = newPath;
+    }
+
+    // Restore legacy per-event photos (events.bill_photo_path).
+    final Map<String, String> eventLegacyPhotoNewPaths = {}; // event id → new path
+    for (final e in (data['events'] as List? ?? [])) {
+      final b64 = e['bill_photo_data_base64'] as String?;
+      if (b64 != null) {
+        final newPath = await _restorePhoto('${e['id']}_legacy', b64, 'jpg');
+        if (newPath != null) eventLegacyPhotoNewPaths[e['id'] as String] = newPath;
+      }
+    }
+
     await _db.transaction(() async {
       // Clear all data
+      await _db.delete(_db.billPhotos).go();
       await _db.delete(_db.events).go();
       await _db.delete(_db.friends).go();
       await _db.delete(_db.categories).go();
@@ -320,8 +384,11 @@ class DataDao {
 
       // Import events
       for (final e in (data['events'] as List? ?? [])) {
+        final eventId = e['id'] as String;
+        // Use restored path if we have one; fall back to original path (same device restore).
+        final restoredPath = eventLegacyPhotoNewPaths[eventId] ?? (e['bill_photo_path'] as String?);
         await _db.into(_db.events).insert(EventsCompanion.insert(
-          id: e['id'] as String,
+          id: eventId,
           type: e['type'] as String,
           amount: _toInt(e['amount']),
           category: Value(e['category'] as String?),
@@ -334,7 +401,20 @@ class DataDao {
           loanId: Value(e['loan_id'] as String?),
           eventDate: e['event_date'] as String,
           createdAt: e['created_at'] as String,
-          billPhotoPath: Value(e['bill_photo_path'] as String?),
+          billPhotoPath: Value(restoredPath),
+        ));
+      }
+
+      // Import bill photos — use restored path if available, else original path (same-device restore).
+      for (final p in (data['bill_photos'] as List? ?? [])) {
+        final photoId = p['id'] as String;
+        final restoredPath = billPhotoNewPaths[photoId] ?? (p['file_path'] as String?);
+        if (restoredPath == null) continue; // skip rows with no usable path
+        await _db.into(_db.billPhotos).insert(BillPhotosCompanion.insert(
+          id: photoId,
+          eventId: p['event_id'] as String,
+          filePath: restoredPath,
+          createdAt: p['created_at'] as String,
         ));
       }
 
@@ -358,6 +438,7 @@ class DataDao {
   /// Clear all data and reset to defaults.
   Future<void> clearAllData() async {
     await _db.transaction(() async {
+      await _db.delete(_db.billPhotos).go();
       await _db.delete(_db.events).go();
       await _db.delete(_db.friends).go();
       await _db.delete(_db.categories).go();

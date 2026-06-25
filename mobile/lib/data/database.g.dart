@@ -1911,6 +1911,274 @@ class EventsCompanion extends UpdateCompanion<Event> {
   }
 }
 
+class $BillPhotosTable extends BillPhotos
+    with TableInfo<$BillPhotosTable, BillPhoto> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $BillPhotosTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _eventIdMeta =
+      const VerificationMeta('eventId');
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+      'event_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _filePathMeta =
+      const VerificationMeta('filePath');
+  @override
+  late final GeneratedColumn<String> filePath = GeneratedColumn<String>(
+      'file_path', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<String> createdAt = GeneratedColumn<String>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [id, eventId, filePath, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'bill_photos';
+  @override
+  VerificationContext validateIntegrity(Insertable<BillPhoto> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('event_id')) {
+      context.handle(_eventIdMeta,
+          eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta));
+    } else if (isInserting) {
+      context.missing(_eventIdMeta);
+    }
+    if (data.containsKey('file_path')) {
+      context.handle(_filePathMeta,
+          filePath.isAcceptableOrUnknown(data['file_path']!, _filePathMeta));
+    } else if (isInserting) {
+      context.missing(_filePathMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  BillPhoto map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return BillPhoto(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      eventId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}event_id'])!,
+      filePath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}file_path'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $BillPhotosTable createAlias(String alias) {
+    return $BillPhotosTable(attachedDatabase, alias);
+  }
+}
+
+class BillPhoto extends DataClass implements Insertable<BillPhoto> {
+  final String id;
+  final String eventId;
+  final String filePath;
+  final String createdAt;
+  const BillPhoto(
+      {required this.id,
+      required this.eventId,
+      required this.filePath,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['event_id'] = Variable<String>(eventId);
+    map['file_path'] = Variable<String>(filePath);
+    map['created_at'] = Variable<String>(createdAt);
+    return map;
+  }
+
+  BillPhotosCompanion toCompanion(bool nullToAbsent) {
+    return BillPhotosCompanion(
+      id: Value(id),
+      eventId: Value(eventId),
+      filePath: Value(filePath),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory BillPhoto.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return BillPhoto(
+      id: serializer.fromJson<String>(json['id']),
+      eventId: serializer.fromJson<String>(json['eventId']),
+      filePath: serializer.fromJson<String>(json['filePath']),
+      createdAt: serializer.fromJson<String>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'eventId': serializer.toJson<String>(eventId),
+      'filePath': serializer.toJson<String>(filePath),
+      'createdAt': serializer.toJson<String>(createdAt),
+    };
+  }
+
+  BillPhoto copyWith(
+          {String? id, String? eventId, String? filePath, String? createdAt}) =>
+      BillPhoto(
+        id: id ?? this.id,
+        eventId: eventId ?? this.eventId,
+        filePath: filePath ?? this.filePath,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  BillPhoto copyWithCompanion(BillPhotosCompanion data) {
+    return BillPhoto(
+      id: data.id.present ? data.id.value : this.id,
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      filePath: data.filePath.present ? data.filePath.value : this.filePath,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BillPhoto(')
+          ..write('id: $id, ')
+          ..write('eventId: $eventId, ')
+          ..write('filePath: $filePath, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, eventId, filePath, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is BillPhoto &&
+          other.id == this.id &&
+          other.eventId == this.eventId &&
+          other.filePath == this.filePath &&
+          other.createdAt == this.createdAt);
+}
+
+class BillPhotosCompanion extends UpdateCompanion<BillPhoto> {
+  final Value<String> id;
+  final Value<String> eventId;
+  final Value<String> filePath;
+  final Value<String> createdAt;
+  final Value<int> rowid;
+  const BillPhotosCompanion({
+    this.id = const Value.absent(),
+    this.eventId = const Value.absent(),
+    this.filePath = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  BillPhotosCompanion.insert({
+    required String id,
+    required String eventId,
+    required String filePath,
+    required String createdAt,
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        eventId = Value(eventId),
+        filePath = Value(filePath),
+        createdAt = Value(createdAt);
+  static Insertable<BillPhoto> custom({
+    Expression<String>? id,
+    Expression<String>? eventId,
+    Expression<String>? filePath,
+    Expression<String>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (eventId != null) 'event_id': eventId,
+      if (filePath != null) 'file_path': filePath,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  BillPhotosCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? eventId,
+      Value<String>? filePath,
+      Value<String>? createdAt,
+      Value<int>? rowid}) {
+    return BillPhotosCompanion(
+      id: id ?? this.id,
+      eventId: eventId ?? this.eventId,
+      filePath: filePath ?? this.filePath,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (filePath.present) {
+      map['file_path'] = Variable<String>(filePath.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<String>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('BillPhotosCompanion(')
+          ..write('id: $id, ')
+          ..write('eventId: $eventId, ')
+          ..write('filePath: $filePath, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CategoriesTable extends Categories
     with TableInfo<$CategoriesTable, Category> {
   @override
@@ -6389,6 +6657,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $FriendsTable friends = $FriendsTable(this);
   late final $AccountsTable accounts = $AccountsTable(this);
   late final $EventsTable events = $EventsTable(this);
+  late final $BillPhotosTable billPhotos = $BillPhotosTable(this);
   late final $CategoriesTable categories = $CategoriesTable(this);
   late final $MonthRecordsTable monthRecords = $MonthRecordsTable(this);
   late final $RecurringTransactionsTable recurringTransactions =
@@ -6411,6 +6680,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         friends,
         accounts,
         events,
+        billPhotos,
         categories,
         monthRecords,
         recurringTransactions,
@@ -7179,6 +7449,116 @@ class $$EventsTableOrderingComposer
 
   ColumnOrderings<String> get billPhotoPath => $state.composableBuilder(
       column: $state.table.billPhotoPath,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+}
+
+typedef $$BillPhotosTableCreateCompanionBuilder = BillPhotosCompanion Function({
+  required String id,
+  required String eventId,
+  required String filePath,
+  required String createdAt,
+  Value<int> rowid,
+});
+typedef $$BillPhotosTableUpdateCompanionBuilder = BillPhotosCompanion Function({
+  Value<String> id,
+  Value<String> eventId,
+  Value<String> filePath,
+  Value<String> createdAt,
+  Value<int> rowid,
+});
+
+class $$BillPhotosTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $BillPhotosTable,
+    BillPhoto,
+    $$BillPhotosTableFilterComposer,
+    $$BillPhotosTableOrderingComposer,
+    $$BillPhotosTableCreateCompanionBuilder,
+    $$BillPhotosTableUpdateCompanionBuilder> {
+  $$BillPhotosTableTableManager(_$AppDatabase db, $BillPhotosTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          filteringComposer:
+              $$BillPhotosTableFilterComposer(ComposerState(db, table)),
+          orderingComposer:
+              $$BillPhotosTableOrderingComposer(ComposerState(db, table)),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> eventId = const Value.absent(),
+            Value<String> filePath = const Value.absent(),
+            Value<String> createdAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              BillPhotosCompanion(
+            id: id,
+            eventId: eventId,
+            filePath: filePath,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String eventId,
+            required String filePath,
+            required String createdAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              BillPhotosCompanion.insert(
+            id: id,
+            eventId: eventId,
+            filePath: filePath,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+        ));
+}
+
+class $$BillPhotosTableFilterComposer
+    extends FilterComposer<_$AppDatabase, $BillPhotosTable> {
+  $$BillPhotosTableFilterComposer(super.$state);
+  ColumnFilters<String> get id => $state.composableBuilder(
+      column: $state.table.id,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get eventId => $state.composableBuilder(
+      column: $state.table.eventId,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get filePath => $state.composableBuilder(
+      column: $state.table.filePath,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get createdAt => $state.composableBuilder(
+      column: $state.table.createdAt,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+}
+
+class $$BillPhotosTableOrderingComposer
+    extends OrderingComposer<_$AppDatabase, $BillPhotosTable> {
+  $$BillPhotosTableOrderingComposer(super.$state);
+  ColumnOrderings<String> get id => $state.composableBuilder(
+      column: $state.table.id,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get eventId => $state.composableBuilder(
+      column: $state.table.eventId,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get filePath => $state.composableBuilder(
+      column: $state.table.filePath,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get createdAt => $state.composableBuilder(
+      column: $state.table.createdAt,
       builder: (column, joinBuilders) =>
           ColumnOrderings(column, joinBuilders: joinBuilders));
 }
@@ -8968,6 +9348,8 @@ class $AppDatabaseManager {
       $$AccountsTableTableManager(_db, _db.accounts);
   $$EventsTableTableManager get events =>
       $$EventsTableTableManager(_db, _db.events);
+  $$BillPhotosTableTableManager get billPhotos =>
+      $$BillPhotosTableTableManager(_db, _db.billPhotos);
   $$CategoriesTableTableManager get categories =>
       $$CategoriesTableTableManager(_db, _db.categories);
   $$MonthRecordsTableTableManager get monthRecords =>

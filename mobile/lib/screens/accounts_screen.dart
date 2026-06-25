@@ -9,10 +9,15 @@ import '../providers/database_provider.dart';
 import '../theme/colors.dart';
 import '../widgets/amount_display.dart';
 import '../widgets/app_icons.dart';
+import '../widgets/modal_sheet.dart' show showConfirmDialog;
 
 final accountsProvider = FutureProvider.autoDispose<List<Account>>((ref) async {
   return ref.watch(accountDaoProvider).getAccounts();
 });
+
+/// Incremented by the corner FAB in MainShell when the Accounts tab is active.
+/// AccountsScreen listens and opens the add-account sheet in response.
+final addAccountTriggerProvider = StateProvider<int>((ref) => 0);
 
 /// Sum of autopay recurring amounts (this period) per account, used to render
 /// "On hold: ₹X" subtitles next to each account card.
@@ -109,16 +114,14 @@ class AccountsScreen extends ConsumerWidget {
     final onHoldAsync = ref.watch(accountOnHoldProvider);
     final holdItemsAsync = ref.watch(accountOnHoldItemsProvider);
 
+    ref.listen<int>(addAccountTriggerProvider, (_, __) {
+      _showAddAccountSheet(context, ref);
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: Text(AppStrings.get('accounts')),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_business),
-            tooltip: AppStrings.get('add_account'),
-            onPressed: () => _showAddAccountSheet(context, ref),
-          ),
-        ],
+        actions: const [],
       ),
       body: accountsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -126,17 +129,89 @@ class AccountsScreen extends ConsumerWidget {
         data: (accounts) {
           if (accounts.isEmpty) {
             return Center(
-              child: Text(AppStrings.get('no_accounts_yet'),
-                  style: const TextStyle(color: AppColors.textMuted)),
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.account_balance_outlined,
+                        size: 64, color: AppColors.textMuted),
+                    const SizedBox(height: 16),
+                    const Text('No accounts yet',
+                        style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Add your first bank, UPI, or Cash account to start tracking balances.\n\nTap the button below or the + icon at the top right.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+                    ),
+                    const SizedBox(height: 28),
+                    FilledButton.icon(
+                      onPressed: () => _showAddAccountSheet(context, ref),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.accent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Add Account',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              ),
             );
           }
           final onHold = onHoldAsync.valueOrNull ?? {};
           final holdItems = holdItemsAsync.valueOrNull ?? {};
-          return ListView.builder(
+          final totalBalance = accounts.fold<int>(0, (sum, a) => sum + a.trackedBalance);
+          return ListView(
             padding: const EdgeInsets.all(16),
-            itemCount: accounts.length,
-            itemBuilder: (context, index) {
-              final account = accounts[index];
+            children: [
+              // Net worth header
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.account_balance_wallet_outlined,
+                        color: totalBalance >= 0 ? AppColors.success : AppColors.danger,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Total Balance',
+                              style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+                          AmountDisplay(
+                            amount: totalBalance,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: totalBalance >= 0 ? AppColors.success : AppColors.danger,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${accounts.length} account${accounts.length == 1 ? '' : 's'}',
+                        style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              ...accounts.map((account) {
               final hold = onHold[account.id] ?? 0;
               final base =
                   '${AppStrings.accountTypeName(account.type)}${account.institution != null ? ' • ${account.institution}' : ''}';
@@ -177,7 +252,8 @@ class AccountsScreen extends ConsumerWidget {
                       context, ref, account, holdItems[account.id] ?? []),
                 ),
               );
-            },
+            }),
+            ],
           );
         },
       ),
@@ -371,6 +447,7 @@ class AccountsScreen extends ConsumerWidget {
     final balanceController = TextEditingController(
         text: (account.trackedBalance / 100).toStringAsFixed(2));
     final originalBalance = account.trackedBalance;
+    String selectedType = account.type;
 
     showModalBottomSheet(
       context: context,
@@ -379,7 +456,9 @@ class AccountsScreen extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) => Padding(
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+
         padding: EdgeInsets.only(
           left: 16, right: 16, top: 16,
           bottom: MediaQuery.of(context).viewInsets.bottom + 16,
@@ -399,14 +478,17 @@ class AccountsScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: account.type,
+                value: selectedType,
                 decoration: InputDecoration(labelText: AppStrings.get('type')),
-                items: [
-                  DropdownMenuItem(
-                      value: account.type,
-                      child: Text(AppStrings.accountTypeName(account.type))),
+                items: const [
+                  DropdownMenuItem(value: 'cash', child: Text('Cash')),
+                  DropdownMenuItem(value: 'savings', child: Text('Savings')),
+                  DropdownMenuItem(value: 'current', child: Text('Current')),
+                  DropdownMenuItem(value: 'debit_card', child: Text('Debit Card')),
+                  DropdownMenuItem(value: 'credit_card', child: Text('Credit Card')),
+                  DropdownMenuItem(value: 'upi_wallet', child: Text('UPI Wallet')),
                 ],
-                onChanged: null,
+                onChanged: (v) => setModalState(() => selectedType = v!),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -459,6 +541,7 @@ class AccountsScreen extends ConsumerWidget {
                   await ref.read(accountDaoProvider).updateAccount(
                         account.id,
                         name: nameController.text.trim(),
+                        type: selectedType,
                         institution: institutionController.text.trim().isNotEmpty
                             ? institutionController.text.trim()
                             : null,
@@ -474,6 +557,7 @@ class AccountsScreen extends ConsumerWidget {
           ),
         ),
       ),
+    ),  // StatefulBuilder
     );
   }
 
@@ -565,6 +649,14 @@ class AccountsScreen extends ConsumerWidget {
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: () async {
+                  final confirmed = await showConfirmDialog(
+                    context: context,
+                    title: 'Delete account?',
+                    message: '"${account.name}" will be permanently deleted. This cannot be undone.',
+                    confirmText: 'Delete',
+                    isDangerous: true,
+                  );
+                  if (!confirmed) return;
                   await ref.read(accountDaoProvider).deleteAccount(account.id);
                   ref.invalidate(accountsProvider);
                   ref.invalidate(dashboardProvider);
