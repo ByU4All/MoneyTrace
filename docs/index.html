@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoneyTrace — Personal Finance Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 3rem 1.5rem;
+      max-width: 680px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .label {
+      font-size: 0.8rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #555;
+      margin-bottom: 1rem;
+    }
+
+    h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 1.25rem;
+    }
+
+    .tagline {
+      font-size: 1.15rem;
+      color: #888;
+      max-width: 480px;
+      margin-bottom: 3rem;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 3rem;
+    }
+
+    @media (max-width: 480px) {
+      .features { grid-template-columns: 1fr; }
+      h1 { font-size: 2.2rem; }
+    }
+
+    .feature {
+      background: #111;
+      border: 1px solid #1e1e1e;
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    .feature-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #ddd;
+      margin-bottom: 0.35rem;
+    }
+
+    .feature-desc {
+      font-size: 0.875rem;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    .badge-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: #fff;
+      color: #000;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.6rem 1.1rem;
+      border-radius: 6px;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+
+    .badge:hover { opacity: 0.85; }
+
+    .badge-ghost {
+      background: transparent;
+      color: #666;
+      border: 1px solid #2a2a2a;
+    }
+
+    .badge-ghost:hover { color: #aaa; border-color: #444; opacity: 1; }
+
+    footer {
+      padding: 1.5rem;
+      text-align: center;
+      font-size: 0.8rem;
+      color: #444;
+    }
+
+    footer a {
+      color: #555;
+      text-decoration: none;
+    }
+
+    footer a:hover { color: #aaa; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="label">Android App</div>
+    <h1>MoneyTrace</h1>
+    <p class="tagline">A personal finance tracker for all ages. Build good money habits — track expenses, manage budgets, stay on top of loans. No accounts. No cloud. No ads.</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-title">Fully offline</div>
+        <div class="feature-desc">All data lives on your device. No internet connection required, ever.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Budget tracking</div>
+        <div class="feature-desc">Set monthly budgets, track spending by category, carry forward surplus.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Loans & EMIs</div>
+        <div class="feature-desc">Track home loans, car loans, and personal loans with amortization schedules.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Friend settlements</div>
+        <div class="feature-desc">Record who owes whom and settle up without a third-party service.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Recurring expenses</div>
+        <div class="feature-desc">Set up subscriptions and bills so nothing slips through the cracks.</div>
+      </div>
+      <div class="feature">
+        <div class="feature-title">Receipt photos</div>
+        <div class="feature-desc">Attach photos to any transaction. Stored locally, never uploaded.</div>
+      </div>
+    </div>
+
+    <div class="badge-row">
+      <a class="badge" href="https://play.google.com/store/apps/details?id=com.luke.dev.moneytrace" target="_blank" rel="noopener">
+        Get it on Google Play
+      </a>
+      <a class="badge badge-ghost" href="privacy-policy.html">Privacy Policy</a>
+    </div>
+  </main>
+
+  <footer>
+    <p>
+      <a href="privacy-policy.html">Privacy Policy</a> &nbsp;·&nbsp;
+      <a href="mailto:datanext.support@businessnext.com">Contact</a>
+    </p>
+  </footer>
+</body>
+</html>

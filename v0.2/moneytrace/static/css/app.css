@@ -1,0 +1,1480 @@
+/*
+ * MoneyTrace v0.2.0 - Mobile-First CSS
+ *
+ * Design principles:
+ * - Touch-friendly (48px+ tap targets)
+ * - High contrast dark theme
+ * - Large, readable text
+ * - Simple, flat design
+ */
+
+/* ---------------------------------------------------------------------------
+   CSS Variables
+--------------------------------------------------------------------------- */
+:root {
+    /* Colors - Dark theme */
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-card: #0f3460;
+    --bg-input: #0a1628;
+
+    --text-primary: #eaeaea;
+    --text-secondary: #a0a0a0;
+    --text-muted: #666;
+
+    --accent: #e94560;
+    --success: #4ecca3;
+    --warning: #ffc107;
+    --danger: #e94560;
+
+    /* Typography */
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-size-xs: 12px;
+    --font-size-sm: 14px;
+    --font-size-md: 16px;
+    --font-size-lg: 20px;
+    --font-size-xl: 28px;
+    --font-size-xxl: 36px;
+
+    /* Spacing */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+
+    /* Layout */
+    --header-height: 56px;
+    --nav-height: 64px;
+    --safe-area-top: env(safe-area-inset-top, 0px);
+    --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+
+    /* Touch */
+    --touch-target: 48px;
+    --border-radius: 12px;
+}
+
+/* ---------------------------------------------------------------------------
+   Reset & Base
+--------------------------------------------------------------------------- */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+    height: 100%;
+    font-family: var(--font-family);
+    font-size: var(--font-size-md);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow: hidden;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Header
+--------------------------------------------------------------------------- */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: var(--header-height);
+    padding: 0 var(--space-md);
+    padding-top: var(--safe-area-top);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.header-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.header-btn {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------------
+   Main Content
+--------------------------------------------------------------------------- */
+.main {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-md);
+    padding-bottom: calc(var(--nav-height) + var(--space-md) + var(--safe-area-bottom));
+}
+
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: var(--text-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+   Bottom Navigation
+--------------------------------------------------------------------------- */
+.nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(var(--nav-height) + var(--safe-area-bottom));
+    padding-bottom: var(--safe-area-bottom);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: var(--bg-secondary);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+.nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    padding: var(--space-sm);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.nav-btn.active {
+    color: var(--accent);
+}
+
+.nav-icon {
+    font-size: 24px;
+    margin-bottom: var(--space-xs);
+}
+
+.nav-label {
+    font-size: var(--font-size-xs);
+}
+
+/* ---------------------------------------------------------------------------
+   Cards
+--------------------------------------------------------------------------- */
+.card {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-md);
+}
+
+.card-title {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--space-sm);
+}
+
+.card-value {
+    font-size: var(--font-size-xxl);
+    font-weight: 700;
+}
+
+.card-value.positive {
+    color: var(--success);
+}
+
+.card-value.negative {
+    color: var(--danger);
+}
+
+.card-subtitle {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-top: var(--space-xs);
+}
+
+/* ---------------------------------------------------------------------------
+   Summary Cards Grid
+--------------------------------------------------------------------------- */
+.summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.summary-card {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: var(--space-md);
+}
+
+.summary-card-title {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: var(--space-xs);
+}
+
+.summary-card-value {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.summary-card-value.positive {
+    color: var(--success);
+}
+
+.summary-card-value.negative {
+    color: var(--danger);
+}
+
+/* ---------------------------------------------------------------------------
+   Forms
+--------------------------------------------------------------------------- */
+.form-group {
+    margin-bottom: var(--space-lg);
+}
+
+.form-label {
+    display: block;
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-sm);
+}
+
+.form-input {
+    width: 100%;
+    height: var(--touch-target);
+    padding: 0 var(--space-md);
+    background: var(--bg-input);
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+    color: var(--text-primary);
+    font-size: var(--font-size-md);
+    font-family: inherit;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.form-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* Large number input */
+.form-input-amount {
+    height: 64px;
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    text-align: center;
+}
+
+.form-help {
+    display: block;
+    margin-top: var(--space-xs);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+/* Select */
+select.form-input {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23a0a0a0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 20px;
+    padding-right: 44px;
+}
+
+/* ---------------------------------------------------------------------------
+   Buttons
+--------------------------------------------------------------------------- */
+.btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-target);
+    padding: var(--space-md) var(--space-lg);
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-secondary {
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.btn-block {
+    width: 100%;
+}
+
+.btn-lg {
+    min-height: 56px;
+    font-size: var(--font-size-lg);
+}
+
+/* ---------------------------------------------------------------------------
+   Event Type Selector
+--------------------------------------------------------------------------- */
+.type-selector {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+}
+
+.type-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 72px;
+    padding: var(--space-sm);
+    background: var(--bg-card);
+    border: 2px solid transparent;
+    border-radius: var(--border-radius);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.type-btn.active {
+    border-color: var(--accent);
+    color: var(--text-primary);
+}
+
+.type-btn-icon {
+    font-size: 24px;
+    margin-bottom: var(--space-xs);
+}
+
+/* ---------------------------------------------------------------------------
+   List Items
+--------------------------------------------------------------------------- */
+.list-item {
+    display: flex;
+    align-items: center;
+    min-height: var(--touch-target);
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-sm);
+}
+
+.list-item-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-secondary);
+    border-radius: 50%;
+    margin-right: var(--space-md);
+    font-size: 20px;
+}
+
+.list-item-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.list-item-title {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.list-item-subtitle {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-top: var(--space-xs);
+}
+
+.list-item-value {
+    font-weight: 600;
+    text-align: right;
+}
+
+.list-item-value.positive {
+    color: var(--success);
+}
+
+.list-item-value.negative {
+    color: var(--danger);
+}
+
+/* ---------------------------------------------------------------------------
+   Section Headers
+--------------------------------------------------------------------------- */
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-md);
+}
+
+.section-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.section-action {
+    color: var(--accent);
+    font-size: var(--font-size-sm);
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------------
+   Empty State
+--------------------------------------------------------------------------- */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl);
+    text-align: center;
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: var(--space-md);
+    opacity: 0.5;
+}
+
+.empty-state-text {
+    color: var(--text-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+   Modal (Settings)
+--------------------------------------------------------------------------- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 100;
+}
+
+.modal {
+    width: 100%;
+    max-width: 480px;
+    max-height: 80vh;
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    padding: var(--space-lg);
+    padding-bottom: calc(var(--space-lg) + var(--safe-area-bottom));
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-lg);
+}
+
+.modal-title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+}
+
+.modal-close {
+    width: var(--touch-target);
+    height: var(--touch-target);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------------
+   View/Edit Modal Styles
+--------------------------------------------------------------------------- */
+
+/* Detail Summary */
+.detail-summary {
+    text-align: center;
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-lg);
+}
+
+.detail-amount {
+    font-size: var(--font-size-xxl);
+    font-weight: 700;
+    margin-bottom: var(--space-xs);
+}
+
+.detail-amount.positive {
+    color: var(--success);
+}
+
+.detail-amount.negative {
+    color: var(--danger);
+}
+
+.detail-meta {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+/* Loan Detail Styles */
+.loan-detail-summary {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.loan-progress-section {
+    margin-bottom: var(--space-md);
+}
+
+.progress-bar.large {
+    height: 10px;
+    margin-bottom: var(--space-sm);
+}
+
+.progress-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.loan-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-md);
+}
+
+.loan-stat {
+    text-align: center;
+}
+
+.loan-stat .stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+
+.loan-stat .stat-value {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+}
+
+.loan-stat .stat-value.danger {
+    color: var(--danger);
+}
+
+.loan-stat .stat-value.success {
+    color: var(--success);
+}
+
+/* ---------------------------------------------------------------------------
+   Budget Breakdown Modal
+--------------------------------------------------------------------------- */
+.budget-breakdown {
+    background: var(--bg-input);
+    border-radius: var(--border-radius);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-sm) 0;
+    font-size: var(--font-size-md);
+}
+
+.breakdown-item.positive .breakdown-value {
+    color: var(--success);
+}
+
+.breakdown-item.negative .breakdown-value {
+    color: var(--danger);
+}
+
+.breakdown-item.total {
+    font-size: var(--font-size-lg);
+    padding-top: var(--space-md);
+}
+
+.breakdown-divider {
+    border-top: 1px solid rgba(255,255,255,0.2);
+    margin: var(--space-sm) 0;
+}
+
+.breakdown-details {
+    background: var(--bg-input);
+    border-radius: var(--border-radius);
+    padding: var(--space-md);
+}
+
+.breakdown-details h4 {
+    margin-bottom: var(--space-md);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.detail-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   Type Selector Secondary Row
+--------------------------------------------------------------------------- */
+.type-selector-secondary {
+    margin-top: var(--space-sm);
+    background: rgba(255,255,255,0.03);
+}
+
+/* ---------------------------------------------------------------------------
+   Settlement Toggle
+--------------------------------------------------------------------------- */
+.settlement-toggle {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.settlement-btn {
+    flex: 1;
+    padding: var(--space-md);
+    background: var(--bg-input);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--border-radius);
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.settlement-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+/* ---------------------------------------------------------------------------
+   Transfer Group & Form Columns
+--------------------------------------------------------------------------- */
+.form-row {
+    display: flex;
+    gap: var(--space-md);
+}
+
+.form-col {
+    flex: 1;
+}
+
+.form-label-small {
+    display: block;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xs);
+}
+
+/* ---------------------------------------------------------------------------
+   History Filter
+--------------------------------------------------------------------------- */
+.history-filter {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+    padding: var(--space-sm);
+    background: var(--bg-secondary);
+    border-radius: var(--border-radius);
+}
+
+.filter-btn {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    background: transparent;
+    border: none;
+    border-radius: var(--border-radius);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-btn.active {
+    background: var(--accent);
+    color: white;
+}
+
+/* ---------------------------------------------------------------------------
+   Audit Items in Timeline
+--------------------------------------------------------------------------- */
+.audit-item {
+    background: rgba(255,255,255,0.03);
+    border-left: 3px solid var(--text-muted);
+}
+
+.audit-item .list-item-title {
+    font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   Friend Detail Modal
+--------------------------------------------------------------------------- */
+.friend-detail-summary {
+    text-align: center;
+    margin-bottom: var(--space-md);
+}
+
+.balance-display {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    margin-bottom: var(--space-sm);
+}
+
+.balance-display.positive {
+    color: var(--success);
+}
+
+.balance-display.negative {
+    color: var(--danger);
+}
+
+.friend-phone {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.friend-events-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Account Detail Modal
+--------------------------------------------------------------------------- */
+.account-detail-summary {
+    text-align: center;
+    margin-bottom: var(--space-md);
+}
+
+.account-meta {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    margin-top: var(--space-xs);
+}
+
+.credit-info {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-md);
+    margin-top: var(--space-sm);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.account-events-list {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+/* ---------------------------------------------------------------------------
+   Section Divider
+--------------------------------------------------------------------------- */
+.section-divider {
+    border-top: 1px solid rgba(255,255,255,0.1);
+    margin: var(--space-md) 0;
+}
+
+/* ---------------------------------------------------------------------------
+   List Item Mini
+--------------------------------------------------------------------------- */
+.list-item.mini {
+    padding: var(--space-sm) var(--space-md);
+}
+
+.list-item.mini .list-item-title {
+    font-size: var(--font-size-sm);
+}
+
+.list-item.mini .list-item-subtitle {
+    font-size: var(--font-size-xs);
+}
+
+.list-item.mini .list-item-value {
+    font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   Empty State Small
+--------------------------------------------------------------------------- */
+.empty-state-small {
+    padding: var(--space-md);
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   Utility Classes
+--------------------------------------------------------------------------- */
+.mb-md {
+    margin-bottom: var(--space-md) !important;
+}
+
+.mt-md {
+    margin-top: var(--space-md) !important;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ---------------------------------------------------------------------------
+   Dashboard Specific Styles
+--------------------------------------------------------------------------- */
+.screen-dashboard {
+    padding-bottom: var(--space-lg);
+}
+
+.dashboard-budget {
+    text-align: center;
+}
+
+.dashboard-budget-label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--space-xs);
+}
+
+.dashboard-budget-value {
+    font-size: var(--font-size-xxl);
+    font-weight: 700;
+}
+
+.dashboard-budget-base {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-top: var(--space-xs);
+}
+
+.dashboard-section {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+}
+
+.section-header-small {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--space-md);
+}
+
+.section-icon {
+    font-size: var(--font-size-lg);
+}
+
+/* Friend Balance List */
+.friend-balance-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.friend-balance-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-sm);
+    background: var(--bg-input);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.friend-balance-item:hover {
+    background: var(--bg-secondary);
+}
+
+.friend-name {
+    font-weight: 500;
+}
+
+.friend-amount {
+    font-weight: 600;
+}
+
+.friend-amount.positive {
+    color: var(--success);
+}
+
+.friend-amount.negative {
+    color: var(--danger);
+}
+
+/* Category Spending */
+.category-spend-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.category-spend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.category-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.category-spend-item .category-name {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.category-spend-item .category-amount {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.category-bar-container {
+    flex: 2;
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.category-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+}
+
+.category-percentage {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    width: 35px;
+    text-align: right;
+}
+
+/* ---------------------------------------------------------------------------
+   Summary Card Single (full width)
+--------------------------------------------------------------------------- */
+.summary-card-single {
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    padding: var(--space-md);
+    text-align: center;
+}
+
+/* ---------------------------------------------------------------------------
+   Menu List (More Screen)
+--------------------------------------------------------------------------- */
+.menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.menu-item:hover {
+    background: var(--bg-secondary);
+}
+
+.menu-icon {
+    font-size: var(--font-size-lg);
+}
+
+.menu-label {
+    flex: 1;
+    font-weight: 500;
+}
+
+.menu-arrow {
+    color: var(--text-secondary);
+    font-size: var(--font-size-lg);
+}
+
+/* ---------------------------------------------------------------------------
+   Balance Indicators in Friends List
+--------------------------------------------------------------------------- */
+.balance-indicator {
+    display: inline-block;
+    font-size: var(--font-size-xs);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-top: 2px;
+}
+
+.balance-indicator.owes-you {
+    background: rgba(78, 204, 163, 0.2);
+    color: var(--success);
+}
+
+.balance-indicator.you-owe {
+    background: rgba(233, 69, 96, 0.2);
+    color: var(--danger);
+}
+
+/* ---------------------------------------------------------------------------
+   Loans Screen
+--------------------------------------------------------------------------- */
+.loan-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+    cursor: pointer;
+}
+
+.loan-item.inactive {
+    opacity: 0.6;
+}
+
+.loan-info {
+    flex: 1;
+}
+
+.loan-amount {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.emi-amount {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.outstanding-small {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.progress-bar {
+    height: 4px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 2px;
+    margin-top: var(--space-sm);
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--success);
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+/* ---------------------------------------------------------------------------
+   Credit Card Item
+--------------------------------------------------------------------------- */
+.credit-card-item {
+    cursor: pointer;
+}
+
+.credit-limit-small {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+/* ---------------------------------------------------------------------------
+   Recurring Screen
+--------------------------------------------------------------------------- */
+.pending-section {
+    margin-bottom: var(--space-lg);
+}
+
+.pending-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md);
+    background: var(--bg-card);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-sm);
+    border-left: 4px solid var(--warning);
+}
+
+.pending-item .list-item-content {
+    flex: 1;
+}
+
+.pending-actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.confirm-pending-btn,
+.skip-pending-btn {
+    padding: var(--space-sm);
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    font-size: var(--font-size-md);
+}
+
+.confirm-pending-btn {
+    background: var(--success);
+    color: white;
+}
+
+.skip-pending-btn {
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+.recurring-item {
+    cursor: pointer;
+}
+
+.recurring-item.inactive {
+    opacity: 0.6;
+}
+
+/* ---------------------------------------------------------------------------
+   Settings Tabs
+--------------------------------------------------------------------------- */
+.settings-tabs {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.settings-tab {
+    flex: 1;
+    padding: var(--space-sm);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    border-radius: var(--border-radius);
+    transition: all 0.2s;
+}
+
+.settings-tab.active {
+    background: var(--accent);
+    color: white;
+}
+
+.settings-tab-content {
+    display: none;
+}
+
+.settings-tab-content.active {
+    display: block;
+}
+
+.settings-section {
+    margin-top: var(--space-lg);
+}
+
+.settings-section-title {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-bottom: var(--space-md);
+}
+
+/* Form Checkbox */
+.form-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    cursor: pointer;
+}
+
+.form-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--accent);
+}
+
+/* Category Item in Settings */
+.category-item {
+    display: flex;
+    align-items: center;
+    padding: var(--space-sm);
+    background: var(--bg-input);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--space-sm);
+}
+
+.category-item .category-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.category-usage {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    margin-right: var(--space-md);
+}
+
+.category-actions {
+    display: flex;
+    gap: var(--space-xs);
+}
+
+.btn-icon {
+    background: transparent;
+    border: none;
+    padding: var(--space-xs);
+    cursor: pointer;
+    font-size: var(--font-size-md);
+}
+
+/* Add Category Form */
+.add-category-form {
+    display: flex;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+}
+
+.add-category-form input {
+    flex: 1;
+}
+
+/* Badge */
+.badge {
+    display: inline-block;
+    padding: 2px 6px;
+    font-size: var(--font-size-xs);
+    background: var(--accent);
+    color: white;
+    border-radius: 4px;
+    margin-left: var(--space-xs);
+}
+
+.badge-small {
+    font-size: 10px;
+    padding: 1px 4px;
+}
+
+/* Modal Actions */
+.modal-actions {
+    display: flex;
+    gap: var(--space-md);
+    margin-top: var(--space-lg);
+}
+
+.modal-actions .btn {
+    flex: 1;
+}
+
+/* Danger Button */
+.btn-danger {
+    background: var(--danger);
+    color: white;
+}
+
+/* Modal Large */
+.modal-large {
+    max-height: 90vh;
+}
+
+/* Modal Small */
+.modal-small {
+    max-height: 60vh;
+}
+
+/* ---------------------------------------------------------------------------
+   Upcoming Bills Section (Dashboard)
+--------------------------------------------------------------------------- */
+.upcoming-bills-section {
+    margin-bottom: var(--space-md);
+}
+
+.upcoming-bills-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.upcoming-bill-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-input);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.upcoming-bill-item:hover {
+    background: var(--bg-secondary);
+}
+
+.upcoming-bill-item.overdue {
+    border-left: 3px solid var(--danger);
+}
+
+.upcoming-bill-item.due-soon {
+    border-left: 3px solid var(--warning);
+}
+
+.upcoming-bill-item.upcoming {
+    border-left: 3px solid var(--text-muted);
+}
+
+.bill-icon {
+    font-size: var(--font-size-lg);
+}
+
+.bill-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.bill-name {
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.bill-due {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+}
+
+.bill-amount {
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+}
+
+/* ---------------------------------------------------------------------------
+   Autopay Badge
+--------------------------------------------------------------------------- */
+.autopay-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 10px;
+    font-weight: 600;
+    background: rgba(78, 204, 163, 0.2);
+    color: var(--success);
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------------------
+   Reserved Amount Display
+--------------------------------------------------------------------------- */
+.reserved-amount {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    color: var(--warning);
+    font-weight: 500;
+}
+
+.budget-reserved {
+    font-size: var(--font-size-xs);
+    color: var(--warning);
+    opacity: 0.8;
+}
+
+/* ---------------------------------------------------------------------------
+   Overdue styling in breakdown
+--------------------------------------------------------------------------- */
+.detail-item.overdue {
+    color: var(--danger);
+}
+
+.detail-item.overdue span:first-child::after {
+    content: ' (overdue)';
+    font-size: var(--font-size-xs);
+}
+
